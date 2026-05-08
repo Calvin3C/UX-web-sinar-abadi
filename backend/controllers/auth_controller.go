@@ -36,8 +36,8 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// Check if username already exists
-	var existing models.User
+	// Check if username already exists in Customer
+	var existing models.Customer
 	if result := config.DB.Where("username = ?", input.Username).First(&existing); result.RowsAffected > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username sudah terdaftar"})
 		return
@@ -50,15 +50,14 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
+	customer := models.Customer{
 		Username:  input.Username,
 		Password:  string(hashedPassword),
-		Role:      "customer", // Registration is always for customers
 		Name:      input.Name,
 		IsBlocked: false,
 	}
 
-	if result := config.DB.Create(&user); result.Error != nil {
+	if result := config.DB.Create(&customer); result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun"})
 		return
 	}
@@ -66,10 +65,10 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Akun berhasil terdaftar",
 		"user": gin.H{
-			"username":  user.Username,
-			"role":      user.Role,
-			"name":      user.Name,
-			"isBlocked": user.IsBlocked,
+			"username":  customer.Username,
+			"role":      "customer",
+			"name":      customer.Name,
+			"isBlocked": customer.IsBlocked,
 		},
 	})
 }
@@ -83,30 +82,69 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Find user by username and role
-	var user models.User
-	if result := config.DB.Where("username = ? AND role = ?", input.Username, input.Role).First(&user); result.Error != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
+	var userID uint
+	var dbUsername, dbPassword, dbName string
+	var isBlocked bool
+
+	switch input.Role {
+	case "customer":
+		var user models.Customer
+		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
+			return
+		}
+		userID = user.ID
+		dbUsername = user.Username
+		dbPassword = user.Password
+		dbName = user.Name
+		isBlocked = user.IsBlocked
+
+	case "admin":
+		var user models.Admin
+		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
+			return
+		}
+		userID = user.ID
+		dbUsername = user.Username
+		dbPassword = user.Password
+		dbName = user.Name
+		isBlocked = user.IsBlocked
+
+	case "owner":
+		var user models.Owner
+		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
+			return
+		}
+		userID = user.ID
+		dbUsername = user.Username
+		dbPassword = user.Password
+		dbName = user.Name
+		isBlocked = false // Owners cannot be blocked
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Role tidak valid"})
 		return
 	}
 
 	// Check if account is blocked
-	if user.IsBlocked {
+	if isBlocked {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Akun Anda telah diblokir oleh Admin"})
 		return
 	}
 
 	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(dbPassword), []byte(input.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
 		return
 	}
 
 	// Generate JWT token
 	claims := &middleware.Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Role:     user.Role,
+		UserID:   userID,
+		Username: dbUsername,
+		Role:     input.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -123,11 +161,11 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"token": tokenString,
 		"user": gin.H{
-			"id":        user.ID,
-			"username":  user.Username,
-			"role":      user.Role,
-			"name":      user.Name,
-			"isBlocked": user.IsBlocked,
+			"id":        userID,
+			"username":  dbUsername,
+			"role":      input.Role,
+			"name":      dbName,
+			"isBlocked": isBlocked,
 		},
 	})
 }

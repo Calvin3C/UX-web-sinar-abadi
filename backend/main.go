@@ -25,8 +25,11 @@ func main() {
 
 	// Auto-migrate all models
 	if err := config.DB.AutoMigrate(
-		&models.User{},
+		&models.Customer{},
+		&models.Admin{},
+		&models.Owner{},
 		&models.Product{},
+		&models.StockLog{},
 		&models.Order{},
 		&models.OrderItem{},
 		&models.PaymentMethod{},

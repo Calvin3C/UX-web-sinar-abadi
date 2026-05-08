@@ -92,11 +92,18 @@ class AuthController extends Controller
      */
     public function logout()
     {
+        $role = session('auth_role');
+
         session()->forget([
             'auth_token', 'auth_user', 'auth_role',
             'auth_username', 'auth_name', 'auth_user_id',
             'cart',
         ]);
+
+        // Admin/Owner → redirect to login, Customer/Guest → redirect to home
+        if (in_array($role, ['admin', 'owner'])) {
+            return redirect()->route('login')->with('success', 'Anda telah keluar.');
+        }
 
         return redirect()->route('home')->with('success', 'Anda telah keluar.');
     }

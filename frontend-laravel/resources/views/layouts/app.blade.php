@@ -41,14 +41,26 @@
     {{-- Header & Navigation --}}
     <header class="header">
         <div class="container header-inner">
-            <a href="{{ route('home') }}" class="logo">
-                <svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 3.8l6.1 12.2H5.9L12 5.8z"/></svg>
+            @php
+                $logoHref = match(session('auth_role')) {
+                    'admin' => route('admin.dashboard'),
+                    'owner' => route('owner.dashboard'),
+                    default => route('home'),
+                };
+            @endphp
+            <a href="{{ $logoHref }}" class="logo">
+                <svg viewBox="0 0 100 100" width="36" height="36">
+                    <polygon points="50,2 61,38 98,38 68,60 79,96 50,74 21,96 32,60 2,38 39,38" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
+                    <text x="50" y="60" text-anchor="middle" font-size="24" font-weight="800" fill="currentColor" font-family="'Plus Jakarta Sans', sans-serif">SA</text>
+                </svg>
                 SINAR<span>ABADI</span>
             </a>
 
             <nav class="nav-menu" id="main-nav">
-                <a href="{{ route('home') }}" class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}">Beranda</a>
-                <a href="{{ route('katalog') }}" class="nav-link {{ request()->routeIs('katalog') ? 'active' : '' }}">Semua Katalog</a>
+                @if(!in_array(session('auth_role'), ['admin', 'owner']))
+                    <a href="{{ route('home') }}" class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}">Beranda</a>
+                    <a href="{{ route('katalog') }}" class="nav-link {{ request()->routeIs('katalog') ? 'active' : '' }}">Semua Katalog</a>
+                @endif
 
                 @if(!session('auth_token'))
                     <a href="{{ route('login') }}" class="nav-link {{ request()->routeIs('login') ? 'active' : '' }}">Masuk / Daftar</a>
@@ -88,11 +100,15 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <div class="logo">
-                        <svg viewBox="0 0 24 24" width="32" height="32" fill="#dc2626"><path d="M12 2L2 22h20L12 2zm0 3.8l6.1 12.2H5.9L12 5.8z"/></svg>
+                        <svg viewBox="0 0 100 100" width="36" height="36">
+                            <polygon points="50,2 61,38 98,38 68,60 79,96 50,74 21,96 32,60 2,38 39,38" fill="none" stroke="#dc2626" stroke-width="5" stroke-linejoin="round"/>
+                            <text x="50" y="60" text-anchor="middle" font-size="24" font-weight="800" fill="#dc2626" font-family="'Plus Jakarta Sans', sans-serif">SA</text>
+                        </svg>
                         SINAR<span>ABADI</span>
                     </div>
                     <p>Toko material bangunan terlengkap di Dampit, Malang. Melayani penjualan material berkualitas tinggi untuk kebutuhan konstruksi Anda.</p>
                 </div>
+                @if(!in_array(session('auth_role'), ['admin', 'owner']))
                 <div>
                     <h4>Navigasi</h4>
                     <ul class="footer-links">
@@ -110,6 +126,18 @@
                         <li><a href="{{ route('katalog', ['category' => 'Tools']) }}">Tools</a></li>
                     </ul>
                 </div>
+                @else
+                <div>
+                    <h4>Panel</h4>
+                    <ul class="footer-links">
+                        @if(session('auth_role') === 'admin')
+                            <li><a href="{{ route('admin.dashboard') }}">Dashboard Admin</a></li>
+                        @elseif(session('auth_role') === 'owner')
+                            <li><a href="{{ route('owner.dashboard') }}">Dashboard Owner</a></li>
+                        @endif
+                    </ul>
+                </div>
+                @endif
                 <div>
                     <h4>Hubungi Kami</h4>
                     <div class="contact-item">

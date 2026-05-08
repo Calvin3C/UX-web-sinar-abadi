@@ -16,12 +16,15 @@ func RunSeeder(db *gorm.DB) {
 	seedOrders(db)
 }
 
-// ---- USERS ----
+// ---- CUSTOMERS, ADMINS, OWNERS ----
 func seedUsers(db *gorm.DB) {
-	var count int64
-	db.Model(&models.User{}).Count(&count)
-	if count > 0 {
-		log.Println("⏭️  Users table already seeded, skipping...")
+	var customerCount, adminCount, ownerCount int64
+	db.Model(&models.Customer{}).Count(&customerCount)
+	db.Model(&models.Admin{}).Count(&adminCount)
+	db.Model(&models.Owner{}).Count(&ownerCount)
+
+	if customerCount > 0 && adminCount > 0 && ownerCount > 0 {
+		log.Println("⏭️  Users tables already seeded, skipping...")
 		return
 	}
 
@@ -30,16 +33,34 @@ func seedUsers(db *gorm.DB) {
 		return string(h)
 	}
 
-	users := []models.User{
-		{Username: "budi", Password: hashPw("123"), Role: "customer", Name: "Budi Santoso", IsBlocked: false},
-		{Username: "admin", Password: hashPw("admin123"), Role: "admin", Name: "Admin Operasional", IsBlocked: false},
-		{Username: "owner", Password: hashPw("owner123"), Role: "owner", Name: "Dewan Direksi", IsBlocked: false},
+	customers := []models.Customer{
+		{Username: "budi", Password: hashPw("123"), Name: "Budi Santoso", IsBlocked: false},
+	}
+	for _, c := range customers {
+		if err := db.Create(&c).Error; err != nil {
+			log.Printf("⚠️  Failed to seed customer: %v", err)
+		}
 	}
 
-	for _, u := range users {
-		db.Create(&u)
+	admins := []models.Admin{
+		{Username: "admin", Password: hashPw("admin123"), Name: "Admin Operasional", IsBlocked: false},
 	}
-	log.Println("✅ Seeded 3 default users")
+	for _, a := range admins {
+		if err := db.Create(&a).Error; err != nil {
+			log.Printf("⚠️  Failed to seed admin: %v", err)
+		}
+	}
+
+	owners := []models.Owner{
+		{Username: "owner", Password: hashPw("owner123"), Name: "Dewan Direksi"},
+	}
+	for _, o := range owners {
+		if err := db.Create(&o).Error; err != nil {
+			log.Printf("⚠️  Failed to seed owner: %v", err)
+		}
+	}
+
+	log.Println("✅ Seeded default customer, admin, and owner")
 }
 
 // ---- PRODUCTS ----
@@ -259,8 +280,8 @@ func seedOrders(db *gorm.DB) {
 		return
 	}
 
-	// Get budi's user ID
-	var budi models.User
+	// Get budi's customer ID
+	var budi models.Customer
 	if result := db.Where("username = ?", "budi").First(&budi); result.Error != nil {
 		log.Println("⚠️  Could not find user 'budi' for order seeding")
 		return

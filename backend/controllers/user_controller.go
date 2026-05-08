@@ -13,8 +13,8 @@ import (
 // GetCustomers returns a list of all customer users. Admin/Owner only.
 // GET /api/users
 func GetCustomers(c *gin.Context) {
-	var users []models.User
-	if result := config.DB.Where("role = ?", "customer").Find(&users); result.Error != nil {
+	var users []models.Customer
+	if result := config.DB.Find(&users); result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data customer"})
 		return
 	}
@@ -34,7 +34,7 @@ func GetCustomers(c *gin.Context) {
 			ID:        u.ID,
 			Username:  u.Username,
 			Name:      u.Name,
-			Role:      u.Role,
+			Role:      "customer",
 			IsBlocked: u.IsBlocked,
 		})
 	}
@@ -47,8 +47,8 @@ func GetCustomers(c *gin.Context) {
 func ToggleBlockUser(c *gin.Context) {
 	username := c.Param("username")
 
-	var user models.User
-	if result := config.DB.Where("username = ? AND role = ?", username, "customer").First(&user); result.Error != nil {
+	var user models.Customer
+	if result := config.DB.Where("username = ?", username).First(&user); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Customer tidak ditemukan"})
 		return
 	}
@@ -71,8 +71,8 @@ func ToggleBlockUser(c *gin.Context) {
 // GetAdmins returns a list of all admin users. Owner only.
 // GET /api/users/admins
 func GetAdmins(c *gin.Context) {
-	var users []models.User
-	if result := config.DB.Where("role = ?", "admin").Find(&users); result.Error != nil {
+	var users []models.Admin
+	if result := config.DB.Find(&users); result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data admin"})
 		return
 	}
@@ -100,8 +100,8 @@ func GetAdmins(c *gin.Context) {
 func DeleteAdmin(c *gin.Context) {
 	username := c.Param("username")
 
-	var user models.User
-	if result := config.DB.Where("username = ? AND role = ?", username, "admin").First(&user); result.Error != nil {
+	var user models.Admin
+	if result := config.DB.Where("username = ?", username).First(&user); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Admin tidak ditemukan"})
 		return
 	}
@@ -130,7 +130,7 @@ func CreateAdmin(c *gin.Context) {
 	}
 
 	// Check duplicate username
-	var existing models.User
+	var existing models.Admin
 	if result := config.DB.Where("username = ?", input.Username).First(&existing); result.RowsAffected > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username sudah digunakan"})
 		return
@@ -143,10 +143,9 @@ func CreateAdmin(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
+	user := models.Admin{
 		Username:  input.Username,
 		Password:  string(hashedPassword),
-		Role:      "admin",
 		Name:      input.Name,
 		IsBlocked: false,
 	}

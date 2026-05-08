@@ -124,7 +124,7 @@ select.form-input { cursor: pointer; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 80px; }
 .logo { font-size: 28px; font-weight: 800; color: var(--color-text-main); letter-spacing: -1px; cursor: pointer; display: flex; align-items: center; gap: 8px; text-decoration: none; }
 .logo span { color: var(--color-primary); }
-.logo svg { width: 32px; height: 32px; fill: var(--color-primary); }
+.logo svg { width: 36px; height: 36px; color: var(--color-primary); }
 .nav-menu { display: flex; align-items: center; gap: 8px; }
 .nav-link { padding: 10px 16px; font-weight: 600; color: var(--color-text-muted); font-size: 14px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); text-decoration: none; border: none; background: none; font-family: inherit; }
 .nav-link:hover, .nav-link.active { color: var(--color-primary); background-color: var(--color-primary-light); }

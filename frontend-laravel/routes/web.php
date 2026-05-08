@@ -10,11 +10,22 @@ use App\Http\Controllers\OwnerController;
 use Illuminate\Support\Facades\Route;
 
 // =====================================================================
-// PUBLIC ROUTES
+// PUBLIC ROUTES (redirect admin/owner to their dashboards)
 // =====================================================================
 
-Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/katalog', [CatalogController::class, 'index'])->name('katalog');
+Route::get('/', function () {
+    $role = session('auth_role');
+    if ($role === 'admin') return redirect()->route('admin.dashboard');
+    if ($role === 'owner') return redirect()->route('owner.dashboard');
+    return app(HomeController::class)->index();
+})->name('home');
+
+Route::get('/katalog', function (\Illuminate\Http\Request $request) {
+    $role = session('auth_role');
+    if ($role === 'admin') return redirect()->route('admin.dashboard');
+    if ($role === 'owner') return redirect()->route('owner.dashboard');
+    return app(CatalogController::class)->index($request);
+})->name('katalog');
 
 // Auth
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
