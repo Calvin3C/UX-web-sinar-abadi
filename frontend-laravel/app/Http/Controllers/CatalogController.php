@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class CatalogController extends Controller
 {
@@ -19,13 +20,13 @@ class CatalogController extends Controller
      */
     public function index(Request $request)
     {
-        $filters = array_filter([
-            'search'   => $request->input('search'),
+        $filters = [
+            'search'   => $request->input('search', ''),
             'category' => $request->input('category', 'all'),
             'sort'     => $request->input('sort', 'rekomendasi'),
-        ]);
+        ];
 
-        $result = $this->api->getProducts($filters);
+        $result = $this->api->getProducts(array_filter($filters));
         $products = $result['success'] ? $result['data'] : [];
 
         // Extract unique categories for the filter dropdown
@@ -37,17 +38,17 @@ class CatalogController extends Controller
         $page = max(1, (int) $request->input('page', 1));
         $perPage = 12;
         $total = count($products);
-        $totalPages = max(1, ceil($total / $perPage));
+        $totalPages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $totalPages);
         $paginatedProducts = array_slice($products, ($page - 1) * $perPage, $perPage);
 
-        return view('katalog', compact(
-            'paginatedProducts',
-            'categories',
-            'page',
-            'totalPages',
-            'total',
-            'filters'
-        ));
+        return Inertia::render('Katalog', [
+            'paginatedProducts' => $paginatedProducts,
+            'categories' => $categories,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'total' => $total,
+            'filters' => $filters,
+        ]);
     }
 }

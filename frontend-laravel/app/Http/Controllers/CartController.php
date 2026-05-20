@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class CartController extends Controller
 {
@@ -20,24 +21,33 @@ class CartController extends Controller
     public function index()
     {
         $cart = session('cart', []);
-        $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['qty']);
-        $tax = round($subtotal * 0.11);
-        $total = $subtotal + $tax;
+        $cartItems = array_values($cart);
+        
+        $logistic = session('checkout_logistics', [
+            'courier' => '',
+            'address' => '',
+            'cost' => 0,
+            'totalWeight' => 0
+        ]);
 
-        return view('cart.index', compact('cart', 'subtotal', 'tax', 'total'));
+        return Inertia::render('Cart/Index', [
+            'cartItems' => $cartItems,
+            'logistic' => $logistic,
+        ]);
     }
 
     /**
-     * Tambah produk ke keranjang (AJAX).
+     * Tambah produk ke keranjang.
      */
     public function add(Request $request)
     {
         $request->validate([
-            'id'    => 'required|string',
-            'name'  => 'required|string',
-            'price' => 'required|numeric',
-            'img'   => 'nullable|string',
-            'stock' => 'nullable|numeric',
+            'id'      => 'required|string',
+            'name'    => 'required|string',
+            'price'   => 'required|numeric',
+            'img'     => 'nullable|string',
+            'stock'   => 'nullable|numeric',
+            'isLarge' => 'nullable',
         ]);
 
         $cart = session('cart', []);
@@ -46,7 +56,13 @@ class CartController extends Controller
                 || $request->input('isLarge') === true;
 
         if (isset($cart[$productId])) {
-            $cart[$productId]['qty'] += 1;
+            // Check stock limit
+            $newQty = $cart[$productId]['qty'] + 1;
+            $stockLimit = (int) $request->input('stock', 999);
+            if ($newQty > $stockLimit) {
+                return back()->with('error', 'Stok produk tidak mencukupi.');
+            }
+            $cart[$productId]['qty'] = $newQty;
         } else {
             $cart[$productId] = [
                 'id'      => $productId,
@@ -61,15 +77,14 @@ class CartController extends Controller
 
         session(['cart' => $cart]);
 
-        return response()->json([
-            'success'   => true,
-            'message'   => 'Produk ditambahkan ke keranjang',
-            'cartCount' => collect($cart)->sum('qty'),
-        ]);
+        // Recalculate shipping if logistics already set
+        $this->recalculateLogistics();
+
+        return back()->with('success', 'Produk ditambahkan ke keranjang.');
     }
 
     /**
-     * Update quantity produk di keranjang (AJAX).
+     * Update quantity produk di keranjang.
      */
     public function update(Request $request)
     {
@@ -80,30 +95,29 @@ class CartController extends Controller
 
         $cart = session('cart', []);
         $productId = $request->input('id');
-        $qty = $request->input('qty');
+        $qty = (int) $request->input('qty');
 
         if ($qty <= 0) {
             unset($cart[$productId]);
         } elseif (isset($cart[$productId])) {
+            // Check stock
+            $stockLimit = $cart[$productId]['stock'];
+            if ($qty > $stockLimit) {
+                return back()->with('error', "Stok maksimal yang dapat dibeli adalah {$stockLimit}.");
+            }
             $cart[$productId]['qty'] = $qty;
         }
 
         session(['cart' => $cart]);
 
-        $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['qty']);
-        $tax = round($subtotal * 0.11);
+        // Recalculate shipping if logistics already set
+        $this->recalculateLogistics();
 
-        return response()->json([
-            'success'   => true,
-            'cartCount' => collect($cart)->sum('qty'),
-            'subtotal'  => $subtotal,
-            'tax'       => $tax,
-            'total'     => $subtotal + $tax,
-        ]);
+        return back()->with('success', 'Jumlah belanja berhasil diperbarui.');
     }
 
     /**
-     * Hapus produk dari keranjang (AJAX).
+     * Hapus produk dari keranjang.
      */
     public function remove(string $productId)
     {
@@ -111,28 +125,56 @@ class CartController extends Controller
         unset($cart[$productId]);
         session(['cart' => $cart]);
 
-        return response()->json([
-            'success'   => true,
-            'cartCount' => collect($cart)->sum('qty'),
-        ]);
+        // Recalculate shipping if logistics already set
+        $this->recalculateLogistics();
+
+        return back()->with('success', 'Produk dihapus dari keranjang.');
     }
 
     /**
-     * Simpan data logistik ke session dan lanjut ke pembayaran.
+     * Simpan data logistik ke session.
      */
     public function setLogistics(Request $request)
     {
         $request->validate([
-            'phone'          => 'required|string',
-            'address'        => 'required|string',
-            'shippingMethod' => 'required|string',
+            'courier' => 'required|string',
+            'address' => 'required|string',
         ]);
+
+        $cart = session('cart', []);
+        $totalQty = collect($cart)->sum('qty');
+        $hasLargeItem = collect($cart)->some(fn($item) => $item['isLarge'] === true);
+
+        // Simple shipping rates calculation
+        $baseRate = 15000;
+        if ($request->input('courier') === 'JNE') {
+            $baseRate = 20000;
+        } else if ($request->input('courier') === 'Pos Indonesia') {
+            $baseRate = 12000;
+        }
+
+        $cost = $baseRate + ($totalQty * 4000);
+        if ($hasLargeItem) {
+            $cost += 50000; // Extra heavy charge
+        }
+
+        // Mock total weight (each item approx 2kg, large items 15kg)
+        $weight = 0;
+        foreach ($cart as $item) {
+            $weight += $item['qty'] * ($item['isLarge'] ? 15 : 2);
+        }
 
         session([
-            'checkout_logistics' => $request->only('phone', 'address', 'shippingMethod')
+            'checkout_logistics' => [
+                'courier' => $request->input('courier'),
+                'address' => $request->input('address'),
+                'phone' => '0812-3456-7890', // Default phone fallback
+                'cost' => $cost,
+                'totalWeight' => $weight,
+            ]
         ]);
 
-        return redirect()->route('cart.payment');
+        return back()->with('success', 'Kurir & alamat pengiriman berhasil disimpan.');
     }
 
     /**
@@ -143,26 +185,30 @@ class CartController extends Controller
         $cart = session('cart', []);
         if (empty($cart)) return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
 
-        $logistics = session('checkout_logistics');
-        if (!$logistics) return redirect()->route('cart.index')->with('error', 'Silahkan isi data logistik terlebih dahulu.');
-
-        $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['qty']);
-        $tax = round($subtotal * 0.11);
-        
-        // Simulasi ongkir sederhana (mengikuti backend logic)
-        $shippingCost = 0;
-        $method = strtolower($logistics['shippingMethod']);
-        if (str_contains($method, 'kurir toko')) {
-            $shippingCost = 50000;
-        } elseif (str_contains($method, 'jne')) {
-            $totalQty = collect($cart)->sum('qty');
-            $shippingCost = 20000 + ($totalQty * 5000);
+        $logistic = session('checkout_logistics');
+        if (!$logistic || empty($logistic['address'])) {
+            $logistic = [
+                'courier' => 'J&T',
+                'address' => '',
+                'phone' => '',
+                'cost' => 0,
+                'totalWeight' => collect($cart)->sum(fn($i) => $i['qty'] * ($i['isLarge'] ? 15 : 2)),
+            ];
         }
 
-        $totalProduct = $subtotal + $tax;
-        $grandTotal = $totalProduct + $shippingCost;
+        $bankAccounts = [
+            [
+                'name' => 'BCA',
+                'number' => '012-345-6789',
+                'owner' => 'Sinar Abadi Utama'
+            ],
+        ];
 
-        return view('cart.payment', compact('cart', 'logistics', 'subtotal', 'tax', 'shippingCost', 'grandTotal'));
+        return Inertia::render('Cart/Payment', [
+            'cartItems' => array_values($cart),
+            'logistic' => $logistic,
+            'bankAccounts' => $bankAccounts,
+        ]);
     }
 
     /**
@@ -171,11 +217,23 @@ class CartController extends Controller
     public function checkout(Request $request)
     {
         $request->validate([
-            'paymentMethod' => 'required|string',
+            'bank' => 'required|string',
+            'address' => 'required|string',
+            'phone' => 'required|string',
+            'courier' => 'required|string',
+            'proof' => 'required|file|image|max:4096',
         ]);
 
-        $logistics = session('checkout_logistics');
-        if (!$logistics) return redirect()->route('cart.index')->with('error', 'Data logistik tidak ditemukan.');
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('proofs', 'public');
+        }
+
+        $logistic = [
+            'address' => $request->input('address'),
+            'phone' => $request->input('phone'),
+            'courier' => $request->input('courier'),
+        ];
 
         $cart = session('cart', []);
         if (empty($cart)) {
@@ -193,26 +251,67 @@ class CartController extends Controller
         }
 
         $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['qty']);
-        $tax = round($subtotal * 0.11);
-        $total = $subtotal + $tax; // Total produk sebelum ongkir, ongkir di-kalkulasi backend
+        $tax = floor($subtotal * 0.11);
+        $totalProduct = $subtotal + $tax;
 
         $result = $this->api->createOrder(session('auth_token'), [
-            'phone'          => $logistics['phone'],
-            'address'        => $logistics['address'],
-            'shippingMethod' => $logistics['shippingMethod'],
-            'paymentMethod'  => $request->input('paymentMethod'),
+            'phone'          => $logistic['phone'],
+            'address'        => $logistic['address'],
+            'shippingMethod' => $logistic['courier'],
+            'paymentMethod'  => 'Transfer Bank ' . $request->input('bank'),
             'items'          => $items,
-            'total'          => $total,
+            'total'          => $totalProduct,
         ]);
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal membuat pesanan.';
-            return back()->with('error', $error);
+            return back()->withErrors(['bank' => $error]);
+        }
+
+        $orderId = $result['data']['id'] ?? null;
+        if ($orderId && $proofPath) {
+            $proofUrl = asset('storage/' . $proofPath);
+            $this->api->uploadProof(session('auth_token'), $orderId, $proofUrl);
         }
 
         // Clear session after successful checkout
         session()->forget(['cart', 'checkout_logistics']);
 
-        return redirect()->route('customer.dashboard')->with('success', 'Pesanan berhasil dibuat! Segera lakukan pembayaran.');
+        return redirect()->route('customer.dashboard')->with('success', 'Pesanan berhasil dibuat! Bukti pembayaran Anda sedang diverifikasi.');
+    }
+
+    /**
+     * Helper to update logistics calculations dynamically if cart contents change.
+     */
+    private function recalculateLogistics()
+    {
+        $logistic = session('checkout_logistics');
+        if ($logistic && $logistic['address']) {
+            $cart = session('cart', []);
+            $totalQty = collect($cart)->sum('qty');
+            $hasLargeItem = collect($cart)->some(fn($item) => $item['isLarge'] === true);
+
+            $baseRate = 15000;
+            if ($logistic['courier'] === 'JNE') {
+                $baseRate = 20000;
+            } else if ($logistic['courier'] === 'Pos Indonesia') {
+                $baseRate = 12000;
+            }
+
+            $cost = $baseRate + ($totalQty * 4000);
+            if ($hasLargeItem) {
+                $cost += 50000;
+            }
+
+            $weight = 0;
+            foreach ($cart as $item) {
+                $weight += $item['qty'] * ($item['isLarge'] ? 15 : 2);
+            }
+
+            $logistic['cost'] = $cost;
+            $logistic['totalWeight'] = $weight;
+
+            session(['checkout_logistics' => $logistic]);
+        }
     }
 }

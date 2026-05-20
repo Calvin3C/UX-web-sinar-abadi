@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AuthController extends Controller
 {
@@ -22,7 +23,7 @@ class AuthController extends Controller
         if (session('auth_token')) {
             return $this->redirectByRole(session('auth_role'));
         }
-        return view('auth.login');
+        return Inertia::render('Auth/Login');
     }
 
     /**
@@ -44,7 +45,7 @@ class AuthController extends Controller
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Login gagal. Periksa kembali kredensial Anda.';
-            return back()->withInput()->with('error', $error);
+            return back()->withErrors(['username' => $error]);
         }
 
         $data = $result['data'];
@@ -59,7 +60,7 @@ class AuthController extends Controller
             'auth_user_id'  => $data['user']['id'],
         ]);
 
-        return $this->redirectByRole($data['user']['role']);
+        return $this->redirectByRole($data['user']['role'])->with('success', 'Selamat datang kembali!');
     }
 
     /**
@@ -81,7 +82,7 @@ class AuthController extends Controller
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Registrasi gagal.';
-            return back()->withInput()->with('error', $error)->with('mode', 'register');
+            return back()->withErrors(['username' => $error]);
         }
 
         return redirect()->route('login')->with('success', 'Akun berhasil terdaftar! Silakan login.');

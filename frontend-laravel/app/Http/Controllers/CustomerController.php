@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
@@ -23,22 +24,30 @@ class CustomerController extends Controller
         $result = $this->api->getOrders($token);
         $orders = $result['success'] ? $result['data'] : [];
 
-        // Separate active and completed orders
-        $activeOrders = array_filter($orders, fn($o) => in_array($o['status'], ['pending']));
-        $historyOrders = array_filter($orders, fn($o) => in_array($o['status'], ['success', 'refund', 'cancelled']));
-
-        $tab = $request->input('tab', 'active');
-
-        return view('customer.dashboard', compact('activeOrders', 'historyOrders', 'tab'));
+        return Inertia::render('Customer/Dashboard', [
+            'orders' => $orders,
+            'username' => session('auth_username', 'Customer'),
+        ]);
     }
 
     /**
      * Upload bukti pembayaran.
      */
-    public function uploadProof(string $orderId)
+    public function uploadProof(Request $request, string $orderId)
     {
         $token = session('auth_token');
-        $result = $this->api->uploadProof($token, $orderId);
+
+        $request->validate([
+            'proof' => 'required|file|image|max:4096',
+        ]);
+
+        $proofUrl = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('proofs', 'public');
+            $proofUrl = asset('storage/' . $proofPath);
+        }
+
+        $result = $this->api->uploadProof($token, $orderId, $proofUrl);
 
         if (!$result['success']) {
             return back()->with('error', 'Gagal mengunggah bukti pembayaran.');
@@ -53,16 +62,42 @@ class CustomerController extends Controller
     public function trackOrder(Request $request)
     {
         $token = session('auth_token');
-        $orderId = $request->input('order_id');
+        $orderId = $request->input('orderId');
         $order = null;
+        $steps = [];
+        $currentStep = -1;
 
         if ($orderId) {
             $result = $this->api->getOrderById($token, $orderId);
             if ($result['success']) {
                 $order = $result['data'];
+
+                // Build timeline steps
+                $steps = [
+                    ['title' => 'Pesanan Dibuat', 'time' => $order['createdAt'] ?? ''],
+                    ['title' => 'Pembayaran Terverifikasi', 'time' => ''],
+                    ['title' => 'Dalam Pengiriman', 'time' => ''],
+                    ['title' => 'Pesanan Selesai', 'time' => ''],
+                ];
+
+                // Determine current step based on order status
+                $status = strtolower($order['status'] ?? '');
+                $currentStep = match ($status) {
+                    'pending' => 0,
+                    'success' => 1,
+                    'verified' => 1,
+                    'shipping' => 2,
+                    'completed' => 3,
+                    default => 0,
+                };
             }
         }
 
-        return view('customer.tracking', compact('order', 'orderId'));
+        return Inertia::render('Customer/Tracking', [
+            'order' => $order,
+            'queryId' => $orderId ?? '',
+            'steps' => $steps,
+            'currentStep' => $currentStep,
+        ]);
     }
 }

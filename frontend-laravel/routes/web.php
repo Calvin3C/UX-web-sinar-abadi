@@ -75,4 +75,10 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
     Route::put('/orders/{id}/shipping', [OwnerController::class, 'updateShipping'])->name('update-shipping');
     Route::post('/admins', [OwnerController::class, 'createAdmin'])->name('create-admin');
     Route::delete('/admins/{username}', [OwnerController::class, 'deleteAdmin'])->name('delete-admin');
+
+    // Product CRUD
+    Route::get('/products/create', [OwnerController::class, 'createProduct'])->name('products.create');
+    Route::post('/products', [OwnerController::class, 'storeProduct'])->name('products.store');
+    Route::get('/products/{id}/edit', [OwnerController::class, 'editProduct'])->name('products.edit');
+    Route::put('/products/{id}', [OwnerController::class, 'updateProduct'])->name('products.update');
 });

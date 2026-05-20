@@ -39,7 +39,8 @@ type StatusUpdateInput struct {
 
 // ProofUploadInput represents the request body for marking proof as uploaded.
 type ProofUploadInput struct {
-	ProofUploaded bool `json:"proofUploaded"`
+	ProofUploaded bool   `json:"proofUploaded"`
+	ProofUrl      string `json:"proofUrl"`
 }
 
 // ---- Helpers ----
@@ -70,6 +71,8 @@ func CreateOrder(c *gin.Context) {
 	userID, _ := c.Get("userId")
 	username, _ := c.Get("username")
 
+	orderID := generateOrderID()
+
 	// Validate stock availability and decrement
 	tx := config.DB.Begin()
 	for _, item := range input.Items {
@@ -88,6 +91,15 @@ func CreateOrder(c *gin.Context) {
 		tx.Model(&product).Updates(map[string]interface{}{
 			"stock": product.Stock - item.Qty,
 			"sold":  product.Sold + item.Qty,
+		})
+
+		// Log stock deduction due to sale
+		tx.Create(&models.StockLog{
+			ProductID:   item.ProductID,
+			ChangeType:  "deduction",
+			QtyChanged:  -item.Qty,
+			FinalStock:  product.Stock - item.Qty,
+			Description: fmt.Sprintf("Penjualan (Order %s)", orderID),
 		})
 	}
 
@@ -112,8 +124,6 @@ func CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	orderID := generateOrderID()
 
 	order := models.Order{
 		ID:             orderID,
@@ -291,7 +301,16 @@ func UploadProof(c *gin.Context) {
 		return
 	}
 
-	config.DB.Model(&order).Update("proof_uploaded", true)
+	var input ProofUploadInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	config.DB.Model(&order).Updates(map[string]interface{}{
+		"proof_uploaded": true,
+		"proof_url":      input.ProofUrl,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Bukti pembayaran berhasil diunggah",

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class HomeController extends Controller
 {
@@ -29,6 +30,9 @@ class HomeController extends Controller
         // Extract unique categories
         $categories = collect($products)->pluck('category')->unique()->values()->all();
 
-        return view('home', compact('bestSellers', 'categories'));
+        return Inertia::render('Home', [
+            'bestSellers' => $bestSellers,
+            'categories' => $categories,
+        ]);
     }
 }

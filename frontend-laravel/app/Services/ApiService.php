@@ -108,6 +108,36 @@ class ApiService
         ];
     }
 
+    /**
+     * Update product details (admin/owner).
+     */
+    public function updateProduct(string $token, string $productId, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/products/{$productId}", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
+     * Get a single product by ID.
+     */
+    public function getProductById(string $token, string $productId): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/products/{$productId}");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
     // =====================================================================
     // ORDERS
     // =====================================================================
@@ -174,14 +204,15 @@ class ApiService
     }
 
     /**
-     * Mark proof as uploaded (customer).
+     * Mengubah status pesanan menjadi proof_uploaded = true dan menyimpan URL
      */
-    public function uploadProof(string $token, string $orderId): array
+    public function uploadProof(string $token, string $orderId, string $proofUrl = null): array
     {
         $response = Http::timeout(10)
             ->withToken($token)
             ->put("{$this->baseUrl}/orders/{$orderId}/proof", [
                 'proofUploaded' => true,
+                'proofUrl'      => $proofUrl,
             ]);
 
         return [

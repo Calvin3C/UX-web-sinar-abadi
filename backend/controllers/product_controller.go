@@ -96,6 +96,25 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	// Log initial stock
+	if product.Stock > 0 {
+		ownerIDVal, exists := c.Get("userId")
+		var ownerIDPtr *uint
+		if exists && ownerIDVal != nil {
+			id := ownerIDVal.(uint)
+			ownerIDPtr = &id
+		}
+
+		config.DB.Create(&models.StockLog{
+			ProductID:   product.ID,
+			OwnerID:     ownerIDPtr,
+			ChangeType:  "addition",
+			QtyChanged:  product.Stock,
+			FinalStock:  product.Stock,
+			Description: "Stok Awal Produk Baru",
+		})
+	}
+
 	c.JSON(http.StatusCreated, product)
 }
 
@@ -121,11 +140,107 @@ func UpdateStock(c *gin.Context) {
 		newStock = 0
 	}
 
+	actualChange := newStock - product.Stock
+
 	config.DB.Model(&product).Update("stock", newStock)
+
+	// Log stock change
+	if actualChange != 0 {
+		changeType := "addition"
+		reason := "Penambahan Manual Owner"
+		if actualChange < 0 {
+			changeType = "deduction"
+			reason = "Pengurangan Manual Owner"
+		}
+
+		ownerIDVal, exists := c.Get("userId")
+		var ownerIDPtr *uint
+		if exists && ownerIDVal != nil {
+			id := ownerIDVal.(uint)
+			ownerIDPtr = &id
+		}
+
+		config.DB.Create(&models.StockLog{
+			ProductID:   product.ID,
+			OwnerID:     ownerIDPtr,
+			ChangeType:  changeType,
+			QtyChanged:  actualChange,
+			FinalStock:  newStock,
+			Description: reason,
+		})
+	}
 
 	product.Stock = newStock
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Stok berhasil diperbarui",
 		"product": product,
 	})
+}
+
+// UpdateProductInput represents the request body for updating an existing product.
+type UpdateProductInput struct {
+	Category string `json:"category"`
+	Name     string `json:"name"`
+	Price    int64  `json:"price"`
+	Stock    int    `json:"stock"`
+	IsLarge  bool   `json:"isLarge"`
+	ImageURL string `json:"img"`
+}
+
+// UpdateProduct updates an existing product's details. Owner only.
+// PUT /api/products/:id
+func UpdateProduct(c *gin.Context) {
+	productID := c.Param("id")
+
+	var input UpdateProductInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data produk tidak valid"})
+		return
+	}
+
+	var product models.Product
+	if result := config.DB.Where("id = ?", productID).First(&product); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if input.Name != "" {
+		updates["name"] = input.Name
+	}
+	if input.Category != "" {
+		updates["category"] = input.Category
+	}
+	if input.Price > 0 {
+		updates["price"] = input.Price
+	}
+	updates["stock"] = input.Stock
+	updates["is_large"] = input.IsLarge
+	if input.ImageURL != "" {
+		updates["image_url"] = input.ImageURL
+	}
+
+	config.DB.Model(&product).Updates(updates)
+
+	// Reload
+	config.DB.First(&product, "id = ?", productID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Produk berhasil diperbarui",
+		"product": product,
+	})
+}
+
+// GetProductByID retrieves a single product by its ID.
+// GET /api/products/:id
+func GetProductByID(c *gin.Context) {
+	productID := c.Param("id")
+
+	var product models.Product
+	if result := config.DB.Where("id = ?", productID).First(&product); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
 }

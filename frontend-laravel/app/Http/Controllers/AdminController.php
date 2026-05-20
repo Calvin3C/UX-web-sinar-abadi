@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AdminController extends Controller
 {
@@ -20,22 +21,30 @@ class AdminController extends Controller
     public function dashboard(Request $request)
     {
         $token = session('auth_token');
-        $tab = $request->input('tab', 'orders');
-        $statusFilter = $request->input('status', 'all');
 
         // Fetch orders
-        $orderFilters = $statusFilter !== 'all' ? ['status' => $statusFilter] : [];
-        $orderResult = $this->api->getOrders($token, $orderFilters);
+        $orderResult = $this->api->getOrders($token);
         $orders = $orderResult['success'] ? $orderResult['data'] : [];
 
         // Fetch customers
         $customerResult = $this->api->getCustomers($token);
         $customers = $customerResult['success'] ? $customerResult['data'] : [];
 
-        // Count pending orders for badge
-        $pendingCount = count(array_filter($orders, fn($o) => $o['status'] === 'pending'));
+        // Calculate stats
+        $pendingOrders = count(array_filter($orders, fn($o) => strtolower($o['status'] ?? '') === 'pending'));
+        $verifiedOrders = count(array_filter($orders, fn($o) => strtolower($o['status'] ?? '') === 'verified'));
 
-        return view('admin.dashboard', compact('orders', 'customers', 'tab', 'statusFilter', 'pendingCount'));
+        return Inertia::render('Admin/Dashboard', [
+            'orders' => $orders,
+            'customers' => $customers,
+            'username' => session('auth_username', 'Admin'),
+            'stats' => [
+                'totalOrders' => count($orders),
+                'pendingOrders' => $pendingOrders,
+                'verifiedOrders' => $verifiedOrders,
+                'totalCustomers' => count($customers),
+            ],
+        ]);
     }
 
     /**

@@ -1,0 +1,336 @@
+<script setup>
+import AppLayout from '@/Layouts/AppLayout.vue';
+import { useForm, Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+
+const props = defineProps({
+    orders: {
+        type: Array,
+        default: () => [],
+    },
+    username: {
+        type: String,
+        required: true,
+    },
+});
+
+const isModalOpen = ref(false);
+const selectedOrderId = ref('');
+const activeMenu = ref('pesanan'); // 'pesanan' or 'riwayat'
+
+// Split orders into active vs completed
+const activeOrders = computed(() => {
+    return (props.orders || []).filter(o => {
+        const s = o.status?.toUpperCase();
+        return s !== 'COMPLETED' && s !== 'CANCELLED';
+    });
+});
+
+const completedOrders = computed(() => {
+    return (props.orders || []).filter(o => {
+        const s = o.status?.toUpperCase();
+        return s === 'COMPLETED';
+    });
+});
+
+const displayedOrders = computed(() => {
+    return activeMenu.value === 'riwayat' ? completedOrders.value : activeOrders.value;
+});
+
+const proofForm = useForm({
+    proofUploaded: true,
+});
+
+const formatPrice = (price) => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(price).replace('Rp', 'Rp ');
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('id-ID', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch (e) {
+        return dateStr;
+    }
+};
+
+const getStatusClass = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'pending': return 'pending';
+        case 'verified': return 'success';
+        case 'shipping': return 'info';
+        case 'completed': return 'success';
+        case 'cancelled': return 'cancelled';
+        default: return 'pending';
+    }
+};
+
+const getStatusLabel = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'pending': return 'Pending';
+        case 'success': return 'Success';
+        case 'shipping': return 'Dalam Pengiriman';
+        case 'completed': return 'Selesai';
+        case 'cancelled': return 'Dibatalkan';
+        default: return status;
+    }
+};
+
+const openUploadModal = (orderId) => {
+    selectedOrderId.value = orderId;
+    isModalOpen.value = true;
+};
+
+const handleUploadProof = () => {
+    proofForm.post(`/customer/orders/${selectedOrderId.value}/proof`, {
+        onSuccess: () => {
+            isModalOpen.value = false;
+        },
+    });
+};
+</script>
+
+<template>
+    <AppLayout>
+        <section class="section active" style="padding-top: 40px; background: #f8fafc; min-height: 100vh;">
+            <div class="container">
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;">
+                    
+                    <!-- Sidebar -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                        <!-- Profile -->
+                        <div class="d-flex align-center gap-4 mb-4">
+                            <div style="width: 48px; height: 48px; background: #e11d48; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
+                                {{ username.charAt(0).toUpperCase() }}
+                            </div>
+                            <div>
+                                <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: #0f172a;">{{ username }}</h3>
+                                <div style="font-size: 13px; color: #64748b;">Akun Reguler</div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 1px; background: #e2e8f0; margin: 16px 0;"></div>
+                        
+                        <!-- Menu -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Pesanan & Pengiriman -->
+                            <div 
+                                @click="activeMenu = 'pesanan'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeMenu === 'pesanan' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeMenu === 'pesanan' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Pesanan & Pengiriman</span>
+                                <div v-if="activeMenu === 'pesanan'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
+                            <!-- Riwayat Selesai -->
+                            <div 
+                                @click="activeMenu = 'riwayat'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeMenu === 'riwayat' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeMenu === 'riwayat' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Riwayat Selesai</span>
+                                <div v-if="activeMenu === 'riwayat'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+
+                            
+                            <!-- Keranjang Belanja -->
+                            <Link href="/cart" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; text-decoration: none;">
+                                <div style="display: flex; align-items: center;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 12px;">
+                                        <circle cx="9" cy="21" r="1"></circle>
+                                        <circle cx="20" cy="21" r="1"></circle>
+                                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                                    </svg>
+                                    <span style="color: #64748b; font-weight: 600; font-size: 14px;">Keranjang Belanja</span>
+                                </div>
+                                <div v-if="$page.props.cartCount > 0" style="background: #e11d48; color: white; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px;">
+                                    {{ $page.props.cartCount }}
+                                </div>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div>
+                        <h3 class="section-title mb-6">{{ activeMenu === 'riwayat' ? 'Riwayat Selesai' : 'Pesanan & Pengiriman' }}</h3>
+
+                <div v-if="displayedOrders.length > 0">
+                    <div 
+                        v-for="order in displayedOrders" 
+                        :key="order.id" 
+                        class="order-card"
+                    >
+                        <div class="order-header">
+                            <div>
+                                <div style="font-size:12px; color:var(--color-text-muted);">ID Pesanan</div>
+                                <div style="font-weight: 800; font-size: 16px; color: var(--color-text-main);">
+                                    {{ order.id }}
+                                </div>
+                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top:4px;">
+                                    Dipesan pada: {{ formatDate(order.createdAt) }}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column align-end gap-2">
+                                <span class="status-pill" :class="getStatusClass(order.status)">
+                                    {{ getStatusLabel(order.status) }}
+                                </span>
+                                <div style="font-size: 12px; font-weight:700; color: var(--color-text-muted);">
+                                    Pembayaran: {{ order.payment?.paymentMethod || '-' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <table class="order-items-table">
+                            <tbody>
+                                <tr v-for="item in order.items" :key="item.productId">
+                                    <td style="font-weight: 600;">{{ item.name }}</td>
+                                    <td class="text-right" style="color: var(--color-text-muted);">
+                                        {{ item.qty }}x @ {{ formatPrice(item.price) }}
+                                    </td>
+                                    <td class="text-right" style="font-weight: 700; width:120px;">
+                                        {{ formatPrice(item.price * item.qty) }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Order Summary -->
+                        <div class="d-flex justify-between align-end flex-wrap gap-4 mt-4" style="border-top:1px dashed var(--color-border); padding-top:16px;">
+                            <div>
+                                <div style="font-size:13px; color:var(--color-text-muted);">
+                                    Kurir: <strong style="color:var(--color-text-main);">{{ order.shippingMethod }}</strong> (Ongkir: {{ formatPrice(order.shipping?.shippingCost || 0) }})
+                                </div>
+                                <div style="font-size:13px; color:var(--color-text-muted); margin-top:2px;">
+                                    Alamat: <span style="color:var(--color-text-main);">{{ order.address }}</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div style="font-size:13px; color:var(--color-text-muted);">Total Pembayaran</div>
+                                <div style="font-size: 20px; font-weight: 800; color: var(--color-primary);">
+                                    {{ formatPrice(order.total) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lacak Button for Kurir Sinar Abadi & Jasa Kurir (not Ambil Di Toko) -->
+                        <div 
+                            v-if="order.shippingMethod && !order.shippingMethod.toLowerCase().includes('ambil') && order.status !== 'PENDING' && order.status?.toUpperCase() !== 'COMPLETED'"
+                            class="d-flex justify-end mt-4"
+                        >
+                            <Link 
+                                :href="`/customer/tracking?orderId=${order.id}`"
+                                style="padding: 10px 24px; font-size: 13px; font-weight: 700; color: white; background: #1e293b; border: none; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                Lacak
+                            </Link>
+                        </div>
+
+                        <!-- Pending Pay Actions -->
+                        <div 
+                            v-if="order.status === 'PENDING' && !order.proofUploaded" 
+                            class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
+                            style="background: var(--color-bg-subtle); padding:16px; border-radius: var(--radius-sm);"
+                        >
+                            <div style="font-size: 13px; max-width: 480px;">
+                                Silakan transfer ke rekening <strong>{{ order.payment?.paymentMethod }}</strong>. Setelah transfer, segera upload bukti pembayaran.
+                            </div>
+                            <button 
+                                @click="openUploadModal(order.id)" 
+                                class="btn btn-primary" 
+                                style="padding: 10px 20px; font-size:13px;"
+                            >
+                                Upload Bukti Bayar
+                            </button>
+                        </div>
+                        <div 
+                            v-else-if="order.status === 'PENDING' && order.proofUploaded" 
+                            class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
+                            style="background: #ecfdf5; border: 1px solid #10b981; padding:16px; border-radius: var(--radius-sm);"
+                        >
+                            <div style="font-size: 13px; max-width: 480px; color: #065f46;">
+                                <strong style="display:block; margin-bottom: 4px;">Bukti Pembayaran Terkirim</strong>
+                                Bukti transfer Anda sudah kami terima dan sedang dalam proses verifikasi oleh Admin. Silakan pantau status pesanan secara berkala.
+                            </div>
+                            <Link 
+                                :href="`/customer/tracking?orderId=${order.id}`" 
+                                class="btn" 
+                                style="padding: 10px 20px; font-size:13px; background: #059669; color: white; border-radius: 6px; font-weight: 700; text-decoration: none;"
+                            >
+                                Lacak Pesanan
+                            </Link>
+                        </div>
+
+                        <!-- Completed order info -->
+                        <div 
+                            v-if="order.status?.toUpperCase() === 'COMPLETED'" 
+                            class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
+                            style="background: #ecfdf5; border: 1px solid #10b981; padding:16px; border-radius: var(--radius-sm);"
+                        >
+                            <div style="font-size: 13px; color: #065f46;">
+                                <strong style="display:block; margin-bottom: 4px;">✅ Pesanan Selesai</strong>
+                                Pesanan Anda telah selesai diproses. Terima kasih telah berbelanja di Sinar Abadi!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="text-center" style="padding: 60px 20px; color: #64748b;">
+                    <svg viewBox="0 0 24 24" width="80" height="80" fill="#cbd5e1" style="margin: 0 auto 16px;">
+                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.3 14.3L11 12.7V7h1.5v4.9l3.85 2.3-.76 1.1z"/>
+                    </svg>
+                    <h3>{{ activeMenu === 'riwayat' ? 'Belum Ada Riwayat' : 'Belum Ada Pesanan Aktif' }}</h3>
+                    <p>{{ activeMenu === 'riwayat' ? 'Belum ada pesanan yang selesai.' : 'Anda belum melakukan pemesanan material apa pun.' }}</p>
+                    <Link v-if="activeMenu !== 'riwayat'" href="/katalog" class="btn btn-primary mt-4">Pesan Sekarang</Link>
+                </div>
+                    </div> <!-- End Main Content -->
+                </div> <!-- End Grid Layout -->
+            </div>
+        </section>
+
+        <!-- Proof Upload Dialog -->
+        <div v-if="isModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+            <div class="table-card" style="width:100%; max-width:480px; padding:32px; animation: slideUp 0.3s forwards;">
+                <h3 class="mb-4">Upload Bukti Pembayaran</h3>
+                <p class="text-muted mb-6" style="font-size:13px;">
+                    Upload file foto/struk transfer bank Anda untuk memverifikasi pesanan <strong>{{ selectedOrderId }}</strong>.
+                </p>
+                <form @submit.prevent="handleUploadProof">
+                    <div class="form-group mb-6">
+                        <label class="form-label">Pilih File Gambar Bukti Transfer</label>
+                        <!-- For mocking, we show a styled input field but submit via our post helper -->
+                        <div style="border: 2px dashed var(--color-border); padding: 30px; text-align: center; border-radius: var(--radius-sm); background: #f8fafc;">
+                            <svg viewBox="0 0 24 24" width="40" height="40" fill="#94a3b8" style="margin: 0 auto 8px;">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                            </svg>
+                            <span style="font-size:13px; font-weight:700; color:var(--color-primary); cursor:pointer;">Pilih Foto Struk Transfer</span>
+                            <div style="font-size:11px; color:var(--color-text-muted); margin-top:4px;">JPEG, PNG up to 2MB (Simulasi)</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-between gap-4">
+                        <button type="button" @click="isModalOpen = false" class="btn btn-outline w-100">Batal</button>
+                        <button type="submit" class="btn btn-primary w-100" :disabled="proofForm.processing">Kirim Bukti</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </AppLayout>
+</template>

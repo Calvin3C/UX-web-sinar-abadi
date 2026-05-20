@@ -16,6 +16,7 @@ type Order struct {
 	Status         string      `gorm:"size:20;not null;default:'pending'" json:"status"` // pending | success | refund | cancelled
 	ShippingStatus string      `gorm:"size:100;not null;default:'Menunggu Validasi'" json:"shippingStatus"`
 	ProofUploaded  bool        `gorm:"default:false" json:"proofUploaded"`
+	ProofUrl       string      `gorm:"type:text" json:"proofUrl"`
 	Items          []OrderItem `gorm:"foreignKey:OrderID" json:"items"`
 	Shipping       *Shipping   `gorm:"foreignKey:OrderID" json:"shipping"`
 	Payment        *Payment    `gorm:"foreignKey:OrderID" json:"payment"`

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class OwnerController extends Controller
 {
@@ -20,7 +21,6 @@ class OwnerController extends Controller
     public function dashboard(Request $request)
     {
         $token = session('auth_token');
-        $tab = $request->input('tab', 'report');
 
         // Fetch all orders for reports
         $orderResult = $this->api->getOrders($token);
@@ -35,15 +35,22 @@ class OwnerController extends Controller
         $admins = $adminResult['success'] ? $adminResult['data'] : [];
 
         // Calculate stats
-        $totalRevenue = collect($orders)->where('status', 'success')->sum('total');
-        $totalOrders = count($orders);
-        $pendingOrders = count(array_filter($orders, fn($o) => $o['status'] === 'pending'));
-        $successOrders = count(array_filter($orders, fn($o) => $o['status'] === 'success'));
+        $completedOrders = array_filter($orders, fn($o) => in_array(strtolower($o['status'] ?? ''), ['success', 'completed']));
+        $totalRevenue = collect($completedOrders)->sum('total');
+        $stockIssues = count(array_filter($products, fn($p) => ($p['stock'] ?? 0) <= 5));
 
-        return view('owner.dashboard', compact(
-            'orders', 'products', 'admins', 'tab',
-            'totalRevenue', 'totalOrders', 'pendingOrders', 'successOrders'
-        ));
+        return Inertia::render('Owner/Dashboard', [
+            'products' => $products,
+            'orders' => $orders,
+            'admins' => $admins,
+            'username' => session('auth_username', 'Owner'),
+            'stats' => [
+                'totalRevenue' => $totalRevenue,
+                'salesCount' => count($completedOrders),
+                'stockIssuesCount' => $stockIssues,
+                'totalAdmins' => count($admins),
+            ],
+        ]);
     }
 
     /**
@@ -64,13 +71,16 @@ class OwnerController extends Controller
     }
 
     /**
-     * Update status pengiriman.
+     * Update status pengiriman (input resi / selesai / dll).
      */
     public function updateShipping(Request $request, string $orderId)
     {
         $token = session('auth_token');
+        $status = $request->input('status', 'SHIPPING');
+
         $result = $this->api->updateOrderStatus($token, $orderId, [
-            'shippingStatus' => $request->input('shippingStatus'),
+            'status' => $status,
+            'shippingCode' => $request->input('shippingCode', ''),
         ]);
 
         if (!$result['success']) {
@@ -115,5 +125,157 @@ class OwnerController extends Controller
         }
 
         return back()->with('success', 'Akun admin berhasil dihapus.');
+    }
+
+    /**
+     * Tampilkan form tambah produk baru.
+     */
+    public function createProduct()
+    {
+        $token = session('auth_token');
+        $productResult = $this->api->getProducts();
+        $categories = collect($productResult['success'] ? $productResult['data'] : [])
+            ->pluck('category')
+            ->unique()
+            ->values()
+            ->all();
+
+        return Inertia::render('Owner/ProductForm', [
+            'mode' => 'create',
+            'product' => null,
+            'categories' => $categories,
+            'username' => session('auth_username', 'Owner'),
+        ]);
+    }
+
+    /**
+     * Tampilkan form edit produk.
+     */
+    public function editProduct(string $productId)
+    {
+        $token = session('auth_token');
+        $result = $this->api->getProductById($token, $productId);
+
+        if (!$result['success']) {
+            return redirect()->route('owner.dashboard')->with('error', 'Produk tidak ditemukan.');
+        }
+
+        $productResult = $this->api->getProducts();
+        $categories = collect($productResult['success'] ? $productResult['data'] : [])
+            ->pluck('category')
+            ->unique()
+            ->values()
+            ->all();
+
+        return Inertia::render('Owner/ProductForm', [
+            'mode' => 'edit',
+            'product' => $result['data'],
+            'categories' => $categories,
+            'username' => session('auth_username', 'Owner'),
+        ]);
+    }
+
+    /**
+     * Simpan produk baru.
+     */
+    public function storeProduct(Request $request)
+    {
+        $request->validate([
+            'id'         => 'required|string',
+            'name'       => 'required|string',
+            'category'   => 'required|string',
+            'price'      => 'required|integer|min:0',
+            'stock'      => 'required|integer|min:0',
+            'photo_main' => 'nullable|file|image|max:4096',
+            'photo_1'    => 'nullable|file|image|max:4096',
+            'photo_2'    => 'nullable|file|image|max:4096',
+            'photo_3'    => 'nullable|file|image|max:4096',
+            'photo_4'    => 'nullable|file|image|max:4096',
+            'photo_5'    => 'nullable|file|image|max:4096',
+        ]);
+
+        // Handle photo uploads
+        $imgUrl = '';
+        if ($request->hasFile('photo_main')) {
+            $path = $request->file('photo_main')->store('products', 'public');
+            $imgUrl = asset('storage/' . $path);
+        }
+
+        // Store additional photos (for future use)
+        $additionalPhotos = [];
+        foreach (['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'] as $photoField) {
+            if ($request->hasFile($photoField)) {
+                $path = $request->file($photoField)->store('products', 'public');
+                $additionalPhotos[] = asset('storage/' . $path);
+            }
+        }
+
+        $token = session('auth_token');
+        $result = $this->api->createProduct($token, [
+            'id'       => $request->input('id'),
+            'name'     => $request->input('name'),
+            'category' => $request->input('category'),
+            'price'    => (int) $request->input('price'),
+            'stock'    => (int) $request->input('stock'),
+            'isLarge'  => (bool) $request->input('isLarge', false),
+            'img'      => $imgUrl,
+        ]);
+
+        if (!$result['success']) {
+            $error = $result['data']['error'] ?? 'Gagal menambahkan produk.';
+            return back()->withErrors(['id' => $error]);
+        }
+
+        return redirect()->route('owner.dashboard')->with('success', 'Produk berhasil ditambahkan.');
+    }
+
+    /**
+     * Update produk yang sudah ada.
+     */
+    public function updateProduct(Request $request, string $productId)
+    {
+        $request->validate([
+            'name'       => 'required|string',
+            'category'   => 'required|string',
+            'price'      => 'required|integer|min:0',
+            'stock'      => 'required|integer|min:0',
+            'photo_main' => 'nullable|file|image|max:4096',
+            'photo_1'    => 'nullable|file|image|max:4096',
+            'photo_2'    => 'nullable|file|image|max:4096',
+            'photo_3'    => 'nullable|file|image|max:4096',
+            'photo_4'    => 'nullable|file|image|max:4096',
+            'photo_5'    => 'nullable|file|image|max:4096',
+        ]);
+
+        // Handle main photo upload
+        $imgUrl = $request->input('img', '');
+        if ($request->hasFile('photo_main')) {
+            $path = $request->file('photo_main')->store('products', 'public');
+            $imgUrl = asset('storage/' . $path);
+        }
+
+        // Store additional photos (for future use)
+        foreach (['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'] as $photoField) {
+            if ($request->hasFile($photoField)) {
+                $request->file($photoField)->store('products', 'public');
+            }
+        }
+
+        $token = session('auth_token');
+        $result = $this->api->updateProduct($token, $productId, [
+            'name'     => $request->input('name'),
+            'category' => $request->input('category'),
+            'price'    => (int) $request->input('price'),
+            'stock'    => (int) $request->input('stock'),
+            'isLarge'  => (bool) $request->input('isLarge', false),
+            'img'      => $imgUrl,
+        ]);
+
+        if (!$result['success']) {
+            $error = $result['data']['error'] ?? 'Gagal memperbarui produk.';
+            return back()->withErrors(['name' => $error]);
+        }
+
+        return redirect()->route('owner.dashboard')->with('success', 'Produk berhasil diperbarui.');
     }
 }

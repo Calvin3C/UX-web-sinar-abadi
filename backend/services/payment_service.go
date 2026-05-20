@@ -30,5 +30,10 @@ func (s *PaymentService) InitiatePayment(orderID string, method string, amount i
 		return "CC-TOKEN-MOCK-FOR-" + orderID, nil
 	}
 
+	if strings.Contains(methodLower, "transfer") || strings.Contains(methodLower, "bank") {
+		// Just manual transfer
+		return "MANUAL-TRANSFER", nil
+	}
+
 	return "", fmt.Errorf("metode pembayaran %s belum didukung", method)
 }

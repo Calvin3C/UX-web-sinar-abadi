@@ -74,6 +74,8 @@ func main() {
 	{
 		productAuth.POST("", middleware.RoleRequired("admin", "owner"), controllers.CreateProduct)
 		productAuth.PUT("/:id/stock", middleware.RoleRequired("owner"), controllers.UpdateStock)
+		productAuth.PUT("/:id", middleware.RoleRequired("admin", "owner"), controllers.UpdateProduct)
+		productAuth.GET("/:id", controllers.GetProductByID)
 	}
 
 	// --- Orders (All require auth) ---
