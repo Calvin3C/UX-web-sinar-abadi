@@ -447,13 +447,15 @@ const handleDeleteAdmin = (adminUsername) => {
 
                                         <!-- Kurir Sinar Abadi: Dropdown with Dalam Pengiriman / Selesai -->
                                         <template v-else-if="getShippingType(order.shippingMethod) === 'kurir_toko'">
-                                            <div v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED'" style="position: relative; display: inline-block;">
+                                            <div v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED' || order.status?.toUpperCase() === 'SHIPPING'" style="position: relative; display: inline-block;">
                                                 <select 
                                                     @change="handleKurirStatusChange(order.id, $event.target.value); $event.target.value = '';"
                                                     style="padding: 6px 32px 6px 12px; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #0f172a; cursor: pointer; appearance: none; outline: none;"
                                                 >
-                                                    <option value="" disabled selected>Dalam Pengiriman ▾</option>
-                                                    <option value="shipping">Dalam Pengiriman</option>
+                                                    <option value="" disabled selected>
+                                                        {{ order.status?.toUpperCase() === 'SHIPPING' ? 'Dalam Pengiriman ▾' : 'Proses Pesanan ▾' }}
+                                                    </option>
+                                                    <option v-if="order.status?.toUpperCase() !== 'SHIPPING'" value="shipping">Dalam Pengiriman</option>
                                                     <option value="completed">Selesai</option>
                                                 </select>
                                             </div>

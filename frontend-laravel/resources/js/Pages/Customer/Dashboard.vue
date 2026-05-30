@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useAddresses } from '@/Composables/useAddresses';
 
 const props = defineProps({
     orders: {
@@ -12,11 +13,80 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    user: {
+        type: Object,
+        default: () => ({}),
+    }
 });
+
+const { addresses: mockAddresses, addAddress, updateAddress, setMainAddress } = useAddresses(props.username);
 
 const isModalOpen = ref(false);
 const selectedOrderId = ref('');
-const activeMenu = ref('pesanan'); // 'pesanan' or 'riwayat'
+const activeMenu = ref('alamat'); // 'alamat', 'pesanan' or 'riwayat'
+
+const isAddressFormModalOpen = ref(false);
+const addressFormMode = ref('add'); // 'add' or 'edit'
+
+const addressForm = useForm({
+    id: null,
+    label: '',
+    name: '',
+    phone: '',
+    kota: '',
+    address: '',
+    catatan: '',
+    isMain: false,
+    pinpoint: false,
+});
+
+const openAddAddressModal = () => {
+    addressFormMode.value = 'add';
+    addressForm.id = null;
+    addressForm.label = '';
+    addressForm.kota = '';
+    addressForm.address = '';
+    addressForm.catatan = '';
+    addressForm.isMain = false;
+    addressForm.pinpoint = false;
+    addressForm.name = props.user?.name || '';
+    addressForm.phone = props.user?.phone || '';
+    isAddressFormModalOpen.value = true;
+};
+
+const openEditAddressModal = (addr) => {
+    addressFormMode.value = 'edit';
+    addressForm.id = addr.id;
+    addressForm.label = addr.label;
+    addressForm.name = addr.name;
+    addressForm.phone = addr.phone;
+    addressForm.kota = addr.kota || '';
+    addressForm.address = addr.address;
+    addressForm.catatan = addr.catatan || '';
+    addressForm.isMain = addr.isMain;
+    addressForm.pinpoint = addr.pinpoint;
+    isAddressFormModalOpen.value = true;
+};
+
+const saveAddress = () => {
+    const data = {
+        label: addressForm.label,
+        name: addressForm.name,
+        phone: addressForm.phone,
+        kota: addressForm.kota,
+        address: addressForm.address,
+        catatan: addressForm.catatan,
+        isMain: addressForm.isMain,
+        pinpoint: addressForm.pinpoint,
+    };
+
+    if (addressFormMode.value === 'add') {
+        addAddress(data);
+    } else {
+        updateAddress(addressForm.id, data);
+    }
+    isAddressFormModalOpen.value = false;
+};
 
 // Split orders into active vs completed
 const activeOrders = computed(() => {
@@ -125,6 +195,16 @@ const handleUploadProof = () => {
                         
                         <!-- Menu -->
                         <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Daftar Alamat -->
+                            <div 
+                                @click="activeMenu = 'alamat'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeMenu === 'alamat' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeMenu === 'alamat' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Daftar Alamat</span>
+                                <div v-if="activeMenu === 'alamat'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
                             <!-- Pesanan & Pengiriman -->
                             <div 
                                 @click="activeMenu = 'pesanan'"
@@ -165,9 +245,63 @@ const handleUploadProof = () => {
 
                     <!-- Main Content -->
                     <div>
-                        <h3 class="section-title mb-6">{{ activeMenu === 'riwayat' ? 'Riwayat Selesai' : 'Pesanan & Pengiriman' }}</h3>
+                        <h3 class="section-title mb-6">{{ activeMenu === 'riwayat' ? 'Riwayat Selesai' : activeMenu === 'alamat' ? 'Daftar Alamat' : 'Pesanan & Pengiriman' }}</h3>
 
-                <div v-if="displayedOrders.length > 0">
+                <!-- Daftar Alamat Content -->
+                <div v-if="activeMenu === 'alamat'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                    <!-- Search & Add -->
+                    <div class="d-flex justify-between align-center mb-6 gap-4">
+                        <div style="position: relative; flex: 1;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" placeholder="Tulis Nama Alamat / Kota / Kecamatan tujuan pengiriman" style="width: 100%; padding: 10px 12px 10px 40px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <button @click="openAddAddressModal" style="padding: 10px 20px; background: #e11d48; color: white; font-weight: 700; border-radius: 8px; font-size: 14px; border: none; cursor: pointer; white-space: nowrap;">
+                            + Tambah Alamat Baru
+                        </button>
+                    </div>
+
+                    <!-- Address List -->
+                    <div>
+                        <div 
+                            v-for="addr in mockAddresses" 
+                            :key="addr.id" 
+                            style="border: 1px solid #e11d48; background: #ffe4e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; position: relative;"
+                        >
+                            <div class="d-flex align-center gap-2 mb-2">
+                                <span style="font-weight: 700; color: #0f172a; font-size: 14px;">{{ addr.label }}</span>
+                                <span v-if="addr.isMain" style="background: #e11d48; color: white; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Utama</span>
+                            </div>
+                            <div style="font-weight: 700; color: #0f172a; font-size: 15px; margin-bottom: 4px;">{{ addr.name }}</div>
+                            <div style="font-size: 13px; color: #0f172a; margin-bottom: 4px;">{{ addr.phone }}</div>
+                            <div style="font-size: 13px; color: #0f172a; line-height: 1.5; margin-bottom: 16px; padding-right: 24px;">
+                                {{ addr.address }}
+                            </div>
+                            
+                            <div v-if="addr.pinpoint" class="d-flex align-center gap-2 mb-4" style="color: #e11d48; font-size: 13px; font-weight: 700;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                Sudah Pinpoint
+                            </div>
+
+                            <div class="d-flex align-center gap-4">
+                                <span style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Share</span>
+                                <div style="width: 1px; height: 14px; background: #cbd5e1;"></div>
+                                <span @click="openEditAddressModal(addr)" style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Ubah Alamat</span>
+                                <div v-if="!addr.isMain" style="width: 1px; height: 14px; background: #cbd5e1;"></div>
+                                <span v-if="!addr.isMain" @click="setMainAddress(addr.id)" style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Jadikan Utama</span>
+                            </div>
+
+                            <!-- Checkmark -->
+                            <div v-if="addr.isMain" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #e11d48;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else-if="displayedOrders.length > 0">
                     <div 
                         v-for="order in displayedOrders" 
                         :key="order.id" 
@@ -329,6 +463,69 @@ const handleUploadProof = () => {
                         <button type="button" @click="isModalOpen = false" class="btn btn-outline w-100">Batal</button>
                         <button type="submit" class="btn btn-primary w-100" :disabled="proofForm.processing">Kirim Bukti</button>
                     </div>
+                </form>
+            </div>
+        </div>
+        <!-- Address Form Modal -->
+        <div v-if="isAddressFormModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:16px;">
+            <div style="width:100%; max-width:550px; background: white; border-radius: 12px; overflow: hidden; animation: slideUp 0.3s forwards;">
+                <div class="d-flex justify-between align-center" style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
+                    <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0; flex: 1; text-align: center;">{{ addressFormMode === 'add' ? 'Tambah Alamat Baru' : 'Ubah Alamat' }}</h3>
+                    <button @click="isAddressFormModalOpen = false" style="background: none; border: none; cursor: pointer;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="saveAddress" style="padding: 24px; max-height: 70vh; overflow-y: auto;">
+                    <div style="position: relative; margin-bottom: 24px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Nama Penerima</label>
+                        <input type="text" v-model="addressForm.name" required maxlength="50" class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <div style="text-align: right; font-size: 12px; color: #64748b; margin-top: 4px;">{{ addressForm.name.length }}/50</div>
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 24px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Nomor HP</label>
+                        <input type="text" v-model="addressForm.phone" required maxlength="15" class="form-input" style="width: 100%; padding: 14px 40px 14px 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 14px; top: 14px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                        <div style="text-align: right; font-size: 12px; color: #64748b; margin-top: 4px;">{{ addressForm.phone.length }}/15</div>
+                    </div>
+                    
+                    <div style="height: 8px; background: #f1f5f9; margin: 24px -24px;"></div>
+
+                    <div style="position: relative; margin-bottom: 24px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Label Alamat</label>
+                        <input type="text" v-model="addressForm.label" required maxlength="30" class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <div style="text-align: right; font-size: 12px; color: #64748b; margin-top: 4px;">{{ addressForm.label.length }}/30</div>
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 24px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Kota & Kecamatan</label>
+                        <input type="text" v-model="addressForm.kota" required class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 24px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Alamat Lengkap</label>
+                        <textarea v-model="addressForm.address" required maxlength="200" class="form-input" rows="3" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px; resize: vertical;"></textarea>
+                        <div style="text-align: right; font-size: 12px; color: #64748b; margin-top: 4px;">{{ addressForm.address.length }}/200</div>
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 32px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Catatan Untuk Kurir (Opsional)</label>
+                        <input type="text" v-model="addressForm.catatan" maxlength="45" class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <div class="d-flex justify-between" style="margin-top: 4px;">
+                            <div style="font-size: 12px; color: #64748b;">Warna rumah, patokan, pesan khusus, dll.</div>
+                            <div style="font-size: 12px; color: #64748b;">{{ addressForm.catatan.length }}/45</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-center gap-2 mb-6">
+                        <input type="checkbox" id="isMain" v-model="addressForm.isMain" style="width: 16px; height: 16px;">
+                        <label for="isMain" style="font-size: 14px; color: #1e293b; cursor: pointer;">Jadikan Alamat Utama</label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100" style="background: #e11d48; border-color: #e11d48; padding: 14px; font-weight: 700; border-radius: 8px;">
+                        Simpan Alamat
+                    </button>
                 </form>
             </div>
         </div>

@@ -8,6 +8,9 @@ type Customer struct {
 	Username  string    `gorm:"uniqueIndex;size:100;not null" json:"username"`
 	Password  string    `gorm:"not null" json:"-"` // never exposed in JSON responses
 	Name      string    `gorm:"size:200;not null" json:"name"`
+	Phone     string    `gorm:"size:50" json:"phone"`
+	Email     string    `gorm:"size:200" json:"email"`
+	Gender    string    `gorm:"size:20" json:"gender"`
 	IsBlocked bool      `gorm:"default:false" json:"isBlocked"`
 	Role      string    `gorm:"-" json:"role"` // Computed or hardcoded in response for frontend compatibility
 	CreatedAt time.Time `json:"createdAt"`

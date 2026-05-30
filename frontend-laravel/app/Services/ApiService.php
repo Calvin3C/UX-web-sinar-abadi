@@ -44,12 +44,15 @@ class ApiService
     /**
      * Register a new customer account.
      */
-    public function register(string $username, string $password, string $name): array
+    public function register(string $username, string $password, string $name, string $phone, string $email, string $gender): array
     {
         $response = Http::timeout(10)->post("{$this->baseUrl}/register", [
             'username' => $username,
             'password' => $password,
             'name'     => $name,
+            'phone'    => $phone,
+            'email'    => $email,
+            'gender'   => $gender,
         ]);
 
         return [

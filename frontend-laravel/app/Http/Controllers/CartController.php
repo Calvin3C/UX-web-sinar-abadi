@@ -48,16 +48,19 @@ class CartController extends Controller
             'img'     => 'nullable|string',
             'stock'   => 'nullable|numeric',
             'isLarge' => 'nullable',
+            'qty'     => 'nullable|numeric|min:1',
         ]);
 
         $cart = session('cart', []);
         $productId = $request->input('id');
         $isLarge = in_array($request->input('isLarge'), ['1', 'true', true, 1], true)
                 || $request->input('isLarge') === true;
+        
+        $requestedQty = (int) $request->input('qty', 1);
 
         if (isset($cart[$productId])) {
             // Check stock limit
-            $newQty = $cart[$productId]['qty'] + 1;
+            $newQty = $cart[$productId]['qty'] + $requestedQty;
             $stockLimit = (int) $request->input('stock', 999);
             if ($newQty > $stockLimit) {
                 return back()->with('error', 'Stok produk tidak mencukupi.');
@@ -71,7 +74,7 @@ class CartController extends Controller
                 'img'     => $request->input('img', ''),
                 'isLarge' => $isLarge,
                 'stock'   => (int) $request->input('stock', 0),
-                'qty'     => 1,
+                'qty'     => $requestedQty,
             ];
         }
 
@@ -208,6 +211,7 @@ class CartController extends Controller
             'cartItems' => array_values($cart),
             'logistic' => $logistic,
             'bankAccounts' => $bankAccounts,
+            'user' => session('auth_user', []),
         ]);
     }
 

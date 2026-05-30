@@ -27,6 +27,7 @@ class CustomerController extends Controller
         return Inertia::render('Customer/Dashboard', [
             'orders' => $orders,
             'username' => session('auth_username', 'Customer'),
+            'user' => session('auth_user', []),
         ]);
     }
 

@@ -72,12 +72,18 @@ class AuthController extends Controller
             'username' => 'required|string|min:3',
             'password' => 'required|string|min:3',
             'name'     => 'required|string|min:2',
+            'phone'    => 'required|string|max:50',
+            'email'    => 'required|email|max:200',
+            'gender'   => 'required|string|in:Laki-laki,Perempuan',
         ]);
 
         $result = $this->api->register(
             $request->input('username'),
             $request->input('password'),
-            $request->input('name')
+            $request->input('name'),
+            $request->input('phone'),
+            $request->input('email'),
+            $request->input('gender')
         );
 
         if (!$result['success']) {

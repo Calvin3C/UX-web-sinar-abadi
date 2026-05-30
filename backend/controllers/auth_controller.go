@@ -18,6 +18,9 @@ type RegisterInput struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	Name     string `json:"name" binding:"required"`
+	Phone    string `json:"phone" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Gender   string `json:"gender" binding:"required"`
 }
 
 // LoginInput represents the request body for user login.
@@ -32,7 +35,7 @@ type LoginInput struct {
 func Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi semua field (username, password, name)"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi semua field yang diperlukan"})
 		return
 	}
 
@@ -54,6 +57,9 @@ func Register(c *gin.Context) {
 		Username:  input.Username,
 		Password:  string(hashedPassword),
 		Name:      input.Name,
+		Phone:     input.Phone,
+		Email:     input.Email,
+		Gender:    input.Gender,
 		IsBlocked: false,
 	}
 
@@ -83,7 +89,7 @@ func Login(c *gin.Context) {
 	}
 
 	var userID uint
-	var dbUsername, dbPassword, dbName string
+	var dbUsername, dbPassword, dbName, dbPhone string
 	var isBlocked bool
 
 	switch input.Role {
@@ -97,6 +103,7 @@ func Login(c *gin.Context) {
 		dbUsername = user.Username
 		dbPassword = user.Password
 		dbName = user.Name
+		dbPhone = user.Phone
 		isBlocked = user.IsBlocked
 
 	case "admin":
@@ -165,6 +172,7 @@ func Login(c *gin.Context) {
 			"username":  dbUsername,
 			"role":      input.Role,
 			"name":      dbName,
+			"phone":     dbPhone,
 			"isBlocked": isBlocked,
 		},
 	})

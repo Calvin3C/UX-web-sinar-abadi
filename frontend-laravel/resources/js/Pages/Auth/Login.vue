@@ -16,6 +16,9 @@ const registerForm = useForm({
     name: '',
     username: '',
     password: '',
+    phone: '',
+    email: '',
+    gender: 'Laki-laki',
 });
 
 const switchRole = (role) => {
@@ -143,6 +146,49 @@ const handleRegister = () => {
                                     >
                                     <div v-if="registerForm.errors.name" class="text-danger mt-2" style="font-size: 13px;">
                                         {{ registerForm.errors.name }}
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">No Telfon</label>
+                                    <input 
+                                        type="tel" 
+                                        class="form-input" 
+                                        placeholder="Masukkan nomor telepon"
+                                        v-model="registerForm.phone"
+                                        required
+                                    >
+                                    <div v-if="registerForm.errors.phone" class="text-danger mt-2" style="font-size: 13px;">
+                                        {{ registerForm.errors.phone }}
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Email</label>
+                                    <input 
+                                        type="email" 
+                                        class="form-input" 
+                                        placeholder="Masukkan alamat email"
+                                        v-model="registerForm.email"
+                                        required
+                                    >
+                                    <div v-if="registerForm.errors.email" class="text-danger mt-2" style="font-size: 13px;">
+                                        {{ registerForm.errors.email }}
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Gender</label>
+                                    <select 
+                                        class="form-input" 
+                                        v-model="registerForm.gender"
+                                        required
+                                    >
+                                        <option value="Laki-laki">Laki-laki</option>
+                                        <option value="Perempuan">Perempuan</option>
+                                    </select>
+                                    <div v-if="registerForm.errors.gender" class="text-danger mt-2" style="font-size: 13px;">
+                                        {{ registerForm.errors.gender }}
                                     </div>
                                 </div>
 

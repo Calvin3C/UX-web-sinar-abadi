@@ -1,6 +1,6 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     product: {
@@ -12,6 +12,16 @@ const props = defineProps({
         default: null,
     },
 });
+
+const quantity = ref(1);
+
+const decreaseQty = () => {
+    if (quantity.value > 1) quantity.value--;
+};
+
+const increaseQty = () => {
+    if (quantity.value < props.product.stock) quantity.value++;
+};
 
 const formatPrice = (price) => {
     return new Intl.NumberFormat('id-ID', {
@@ -30,8 +40,12 @@ const handleAddToCart = () => {
         img: props.product.img || '',
         isLarge: props.product.isLarge || false,
         stock: props.product.stock,
+        qty: quantity.value,
     }, {
         preserveScroll: true,
+        onSuccess: () => {
+            quantity.value = 1;
+        }
     });
 };
 </script>
@@ -59,6 +73,12 @@ const handleAddToCart = () => {
             <div class="product-price">{{ formatPrice(product.price) }}</div>
 
             <template v-if="product.stock > 0">
+                <div v-if="authRole === 'customer'" class="quantity-selector">
+                    <button class="qty-btn" @click="decreaseQty" :disabled="quantity <= 1">-</button>
+                    <input type="number" class="qty-input" v-model.number="quantity" min="1" :max="product.stock" readonly>
+                    <button class="qty-btn" @click="increaseQty" :disabled="quantity >= product.stock">+</button>
+                </div>
+
                 <button 
                     v-if="authRole === 'customer'" 
                     class="btn btn-primary w-100 btn-add-cart" 
@@ -92,3 +112,54 @@ const handleAddToCart = () => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 12px;
+}
+.qty-btn {
+    background: transparent;
+    border: none;
+    color: #475569;
+    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.qty-btn:hover:not(:disabled) {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.qty-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.qty-input {
+    width: 40px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    font-weight: 600;
+    color: #0f172a;
+    -moz-appearance: textfield;
+}
+.qty-input:focus {
+    outline: none;
+}
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+</style>
