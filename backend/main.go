@@ -67,6 +67,7 @@ func main() {
 
 	// --- Products ---
 	api.GET("/products", controllers.GetProducts) // Public: list with search, filter, sort
+	api.GET("/products/:id", controllers.GetProductByID) // Public: product detail
 
 	// Protected product routes
 	productAuth := api.Group("/products")
@@ -75,7 +76,6 @@ func main() {
 		productAuth.POST("", middleware.RoleRequired("admin", "owner"), controllers.CreateProduct)
 		productAuth.PUT("/:id/stock", middleware.RoleRequired("owner"), controllers.UpdateStock)
 		productAuth.PUT("/:id", middleware.RoleRequired("admin", "owner"), controllers.UpdateProduct)
-		productAuth.GET("/:id", controllers.GetProductByID)
 	}
 
 	// --- Orders (All require auth) ---

@@ -82,23 +82,25 @@ func CreateOrder(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Produk %s tidak ditemukan", item.ProductID)})
 			return
 		}
-		if product.Stock < item.Qty {
+
+		// Calculate current stock from stock_logs
+		currentStock := getStockByProductID(item.ProductID)
+
+		if currentStock < item.Qty {
 			tx.Rollback()
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok %s tidak mencukupi (tersisa %d)", product.Name, product.Stock)})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok %s tidak mencukupi (tersisa %d)", product.Name, currentStock)})
 			return
 		}
-		// Decrease stock and increase sold count
-		tx.Model(&product).Updates(map[string]interface{}{
-			"stock": product.Stock - item.Qty,
-			"sold":  product.Sold + item.Qty,
-		})
+		// Increase sold count only (stock is managed via stock_logs)
+		tx.Model(&product).Update("sold", product.Sold+item.Qty)
 
 		// Log stock deduction due to sale
+		newStock := currentStock - item.Qty
 		tx.Create(&models.StockLog{
 			ProductID:   item.ProductID,
 			ChangeType:  "deduction",
 			QtyChanged:  -item.Qty,
-			FinalStock:  product.Stock - item.Qty,
+			FinalStock:  newStock,
 			Description: fmt.Sprintf("Penjualan (Order %s)", orderID),
 		})
 	}

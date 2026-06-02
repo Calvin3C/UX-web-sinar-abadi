@@ -31,7 +31,7 @@ const form = useForm({
     name: props.product?.name || '',
     category: props.product?.category || '',
     price: props.product?.price || 0,
-    stock: props.product?.stock || 0,
+    ...(isEdit.value ? {} : { stock: 0 }),
     isLarge: props.product?.isLarge || false,
     img: props.product?.img || '',
     photo_main: null,
@@ -163,16 +163,22 @@ const uniqueCategories = computed(() => {
                             >
                         </div>
 
-                        <!-- Stok -->
-                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
-                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok</label>
+                        <!-- Stok (hanya untuk mode create, stok dikelola terpisah saat edit) -->
+                        <div v-if="!isEdit" style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok Awal</label>
                             <input
                                 v-model.number="form.stock"
                                 type="number"
-                                placeholder="Masukkan Jumlah Stok"
+                                placeholder="Masukkan Jumlah Stok Awal"
                                 min="0"
                                 style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
                             >
+                        </div>
+                        <div v-else style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok</label>
+                            <div style="padding: 10px 14px; background: #f1f5f9; border-radius: 6px; font-size: 14px; color: #64748b;">
+                                Stok dikelola melalui menu "Update Stok" di Dashboard
+                            </div>
                         </div>
 
                         <!-- Divider -->

@@ -35,9 +35,6 @@ const isStockModalOpen = ref(false);
 const selectedProductId = ref('');
 const stockAmount = ref(0);
 
-const isShippingModalOpen = ref(false);
-const selectedOrderId = ref('');
-const shippingCode = ref('');
 
 const newAdminForm = useForm({
     name: '',
@@ -134,56 +131,14 @@ const filteredProducts = computed(() => {
     return list;
 });
 
-// Helper to classify shipping method type
-const getShippingType = (method) => {
-    if (!method) return 'kurir';
-    const m = method.toLowerCase();
-    if (m.includes('ambil di toko') || m.includes('ambil')) return 'ambil';
-    if (m.includes('kurir toko') || m.includes('kurir sinar') || m.includes('sinar abadi')) return 'kurir_toko';
-    return 'kurir'; // JNE, JNT, etc.
-};
 
-// Handle mark order as completed (for Ambil Di Toko)
-const handleMarkCompleted = (orderId) => {
-    router.put(`/owner/orders/${orderId}/shipping`, {
-        shippingCode: 'Diambil di toko',
-        status: 'COMPLETED',
-    }, {
+
+const updateOrderStatus = (orderId, nextStatus) => {
+    router.put(`/owner/orders/${orderId}/status`, { status: nextStatus }, {
         preserveScroll: true,
     });
 };
 
-// Handle Kurir Sinar Abadi status change
-const handleKurirStatusChange = (orderId, newStatus) => {
-    if (newStatus === 'completed') {
-        router.put(`/owner/orders/${orderId}/shipping`, {
-            shippingCode: 'Kurir Toko',
-            status: 'COMPLETED',
-        }, { preserveScroll: true });
-    } else if (newStatus === 'shipping') {
-        router.put(`/owner/orders/${orderId}/shipping`, {
-            shippingCode: 'Kurir Toko - Dalam Pengiriman',
-            status: 'SHIPPING',
-        }, { preserveScroll: true });
-    }
-};
-
-const openShippingModal = (orderId) => {
-    selectedOrderId.value = orderId;
-    shippingCode.value = '';
-    isShippingModalOpen.value = true;
-};
-
-const handleUpdateShipping = () => {
-    router.put(`/owner/orders/${selectedOrderId.value}/shipping`, {
-        shippingCode: shippingCode.value,
-    }, {
-        onSuccess: () => {
-            isShippingModalOpen.value = false;
-        },
-        preserveScroll: true,
-    });
-};
 
 const handleCreateAdmin = () => {
     newAdminForm.post('/owner/admins', {
@@ -250,7 +205,7 @@ const handleDeleteAdmin = (adminUsername) => {
                         :class="{ active: activeTab === 'orders' }" 
                         @click="activeTab = 'orders'"
                     >
-                        Laporan Transaksi
+                        Histori Transaksi
                     </div>
                     <div 
                         class="role-tab" 
@@ -366,7 +321,7 @@ const handleDeleteAdmin = (adminUsername) => {
                 <!-- Tab 2: Orders -->
                 <div v-else-if="activeTab === 'orders'" class="table-card">
                     <div class="table-header">
-                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a;">Rekap Penjualan</h3>
+                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a;">Histori Transaksi</h3>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
@@ -377,8 +332,8 @@ const handleDeleteAdmin = (adminUsername) => {
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Metode Pengiriman</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Nominal Tagihan</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Status</th>
-                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Kode Resi (Shipping)</th>
-                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;" class="text-center">Aksi Logistik</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;" class="text-center">Bukti Pembayaran</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;" class="text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -408,58 +363,46 @@ const handleDeleteAdmin = (adminUsername) => {
                                         </span>
                                     </td>
 
-                                    <!-- Kode Resi: Show only for Jasa Kurir (JNE/JNT/etc) -->
-                                    <td style="font-weight: 700; font-family: monospace; color: #0f172a;">
-                                        <template v-if="getShippingType(order.shippingMethod) === 'kurir'">
-                                            {{ order.shippingCode || '-' }}
-                                        </template>
-                                        <template v-else>
-                                            <span style="color: #94a3b8;">-</span>
-                                        </template>
+                                    <!-- Bukti Pembayaran -->
+                                    <td class="text-center">
+                                        <a v-if="order.proofUploaded && order.proofUrl" :href="order.proofUrl" target="_blank" class="d-flex align-center justify-center gap-2" style="color: #0284c7; font-weight: 600; font-size: 12px; text-decoration: none; cursor: pointer;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                            Lihat
+                                        </a>
+                                        <div v-else-if="order.proofUploaded" style="color: #94a3b8; font-style: italic; font-size: 12px;">
+                                            Uploaded
+                                        </div>
+                                        <div v-else style="color: #94a3b8; font-style: italic; font-size: 12px;">
+                                            -
+                                        </div>
                                     </td>
 
-                                    <!-- Aksi Logistik: Conditional per shipping type -->
+                                    <!-- Aksi: Conditional per status & shipping type -->
                                     <td class="text-center">
-                                        <!-- Jasa Kurir (JNE, JNT, dll): No action, just show - or Input Resi -->
-                                        <template v-if="getShippingType(order.shippingMethod) === 'kurir'">
+                                        <!-- Validasi Pembayaran untuk Pending -->
+                                        <div v-if="order.status?.toLowerCase() === 'pending'" class="d-flex align-center justify-center gap-2">
                                             <button 
-                                                v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED'"
-                                                @click="openShippingModal(order.id)"
+                                                @click="updateOrderStatus(order.id, 'success')"
                                                 class="btn btn-primary"
-                                                style="padding: 6px 14px; font-size: 12px; background: var(--color-info); border-radius: 6px;"
+                                                style="padding: 4px 10px; font-size:11px; background:#0284c7; border-color:#0284c7; border-radius: 4px;"
                                             >
-                                                Input Resi
+                                                Validasi
                                             </button>
-                                            <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
-                                        </template>
-
-                                        <!-- Ambil Di Toko: Show Selesai button -->
-                                        <template v-else-if="getShippingType(order.shippingMethod) === 'ambil'">
                                             <button 
-                                                v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED'"
-                                                @click="handleMarkCompleted(order.id)"
-                                                style="padding: 6px 18px; font-size: 12px; font-weight: 700; color: white; background: #2563eb; border: none; border-radius: 6px; cursor: pointer;"
+                                                @click="updateOrderStatus(order.id, 'cancelled')"
+                                                class="btn btn-outline"
+                                                style="padding: 4px 10px; font-size:11px; color: #dc2626; border-color: #dc2626; border-radius: 4px;"
                                             >
-                                                Selesai
+                                                Tolak
                                             </button>
-                                            <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
-                                        </template>
+                                        </div>
 
-                                        <!-- Kurir Sinar Abadi: Dropdown with Dalam Pengiriman / Selesai -->
-                                        <template v-else-if="getShippingType(order.shippingMethod) === 'kurir_toko'">
-                                            <div v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED' || order.status?.toUpperCase() === 'SHIPPING'" style="position: relative; display: inline-block;">
-                                                <select 
-                                                    @change="handleKurirStatusChange(order.id, $event.target.value); $event.target.value = '';"
-                                                    style="padding: 6px 32px 6px 12px; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #0f172a; cursor: pointer; appearance: none; outline: none;"
-                                                >
-                                                    <option value="" disabled selected>
-                                                        {{ order.status?.toUpperCase() === 'SHIPPING' ? 'Dalam Pengiriman ▾' : 'Proses Pesanan ▾' }}
-                                                    </option>
-                                                    <option v-if="order.status?.toUpperCase() !== 'SHIPPING'" value="shipping">Dalam Pengiriman</option>
-                                                    <option value="completed">Selesai</option>
-                                                </select>
-                                            </div>
-                                            <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
+                                        <!-- Logistik dipindah ke admin -->
+                                        <template v-else>
+                                            <span style="color: #94a3b8; font-size: 12px;">-</span>
                                         </template>
                                     </td>
                                 </tr>
@@ -584,27 +527,5 @@ const handleDeleteAdmin = (adminUsername) => {
             </div>
         </div>
 
-        <!-- Shipping Code Modal -->
-        <div v-if="isShippingModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-            <div class="table-card" style="width:100%; max-width:400px; padding:32px; animation: slideUp 0.3s forwards;">
-                <h3 class="mb-4">Input Kode Resi Pengiriman</h3>
-                <form @submit.prevent="handleUpdateShipping">
-                    <div class="form-group mb-6">
-                        <label class="form-label">Nomor Resi / Bukti Jalan</label>
-                        <input 
-                            type="text" 
-                            class="form-input" 
-                            placeholder="Contoh: JT-12345678"
-                            v-model="shippingCode" 
-                            required
-                        >
-                    </div>
-                    <div class="d-flex justify-between gap-4">
-                        <button type="button" @click="isShippingModalOpen = false" class="btn btn-outline w-100">Batal</button>
-                        <button type="submit" class="btn btn-primary w-100">Kirim Barang</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </AppLayout>
 </template>

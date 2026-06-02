@@ -51,4 +51,24 @@ class CatalogController extends Controller
             'filters' => $filters,
         ]);
     }
+
+    /**
+     * Halaman Detail Produk
+     */
+    public function show(string $id)
+    {
+        $role = session('auth_role');
+        if ($role === 'admin') return redirect()->route('admin.dashboard');
+        if ($role === 'owner') return redirect()->route('owner.dashboard');
+
+        $result = $this->api->getProductById($id);
+        
+        if (!$result['success'] || empty($result['data'])) {
+            abort(404, 'Produk tidak ditemukan');
+        }
+
+        return Inertia::render('ProductDetail', [
+            'product' => $result['data']
+        ]);
+    }
 }

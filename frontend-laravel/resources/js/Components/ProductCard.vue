@@ -52,7 +52,7 @@ const handleAddToCart = () => {
 
 <template>
     <div class="product-card">
-        <div class="product-image-wrap">
+        <Link :href="'/katalog/' + product.id" class="product-image-wrap">
             <span v-if="product.stock <= 0" class="product-badge">Habis</span>
             <span v-if="product.isLarge" class="size-badge">Barang Besar</span>
             <img 
@@ -61,10 +61,12 @@ const handleAddToCart = () => {
                 class="product-image" 
                 loading="lazy"
             >
-        </div>
+        </Link>
         <div class="product-content">
             <span class="product-cat-label">{{ product.category }}</span>
-            <h4 class="product-title">{{ product.name }}</h4>
+            <Link :href="'/katalog/' + product.id" class="product-title-link">
+                <h4 class="product-title">{{ product.name }}</h4>
+            </Link>
             <div class="product-stats">
                 <span>{{ product.sold || 0 }} terjual</span>
                 <span>•</span>
@@ -161,5 +163,12 @@ const handleAddToCart = () => {
 .qty-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+.product-title-link {
+    text-decoration: none;
+    color: inherit;
+}
+.product-title-link:hover .product-title {
+    color: var(--color-primary);
 }
 </style>

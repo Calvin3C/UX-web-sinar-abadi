@@ -48,23 +48,6 @@ class AdminController extends Controller
     }
 
     /**
-     * Update status pesanan (validasi pembayaran).
-     */
-    public function updateStatus(Request $request, string $orderId)
-    {
-        $token = session('auth_token');
-        $result = $this->api->updateOrderStatus($token, $orderId, [
-            'status' => $request->input('status'),
-        ]);
-
-        if (!$result['success']) {
-            return back()->with('error', 'Gagal memperbarui status.');
-        }
-
-        return back()->with('success', 'Status pesanan berhasil diperbarui.');
-    }
-
-    /**
      * Toggle blokir/buka akses customer.
      */
     public function toggleBlock(string $username)
@@ -77,5 +60,25 @@ class AdminController extends Controller
         }
 
         return back()->with('success', $result['data']['message'] ?? 'Status akses berhasil diubah.');
+    }
+
+    /**
+     * Update status pengiriman (input resi / selesai / dll).
+     */
+    public function updateShipping(Request $request, string $orderId)
+    {
+        $token = session('auth_token');
+        $status = $request->input('status', 'SHIPPING');
+
+        $result = $this->api->updateOrderStatus($token, $orderId, [
+            'status' => $status,
+            'shippingCode' => $request->input('shippingCode', ''),
+        ]);
+
+        if (!$result['success']) {
+            return back()->with('error', 'Gagal memperbarui status pengiriman.');
+        }
+
+        return back()->with('success', 'Status pengiriman berhasil diperbarui.');
     }
 }

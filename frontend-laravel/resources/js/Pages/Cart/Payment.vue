@@ -57,6 +57,8 @@ const handleProofUpload = (e) => {
 
 // Watch for changes in selectedAddress to update checkout form
 const selectAddress = (addr) => {
+    if (!addr) return;
+    
     selectedAddress.value = addr;
     checkoutForm.address = addr.kota ? `${addr.address}, ${addr.kota}` : addr.address;
     checkoutForm.phone = addr.phone;
@@ -74,6 +76,10 @@ watch(activeTab, (newTab) => {
     if (newTab === 'ambil') {
         selectAddress(storeAddress);
     } else {
+        if (selectedAddress.value.id === 99 && mockAddresses.value.length === 0) {
+            // Do not try to select mockAddresses[0] if it's empty
+            return;
+        }
         selectAddress(selectedAddress.value.id === 99 ? mockAddresses.value[0] : selectedAddress.value);
     }
 });

@@ -16,7 +16,7 @@ type CreateProductInput struct {
 	Category string `json:"category" binding:"required"`
 	Name     string `json:"name" binding:"required"`
 	Price    int64  `json:"price" binding:"required"`
-	Stock    int    `json:"stock"`
+	Stock    int    `json:"stock"` // initial stock, recorded in stock_logs
 	IsLarge  bool   `json:"isLarge"`
 	ImageURL string `json:"img"`
 }
@@ -24,6 +24,42 @@ type CreateProductInput struct {
 // StockUpdateInput represents the request body for stock adjustment.
 type StockUpdateInput struct {
 	Amount int `json:"amount" binding:"required"` // positive = add, negative = subtract
+}
+
+// UpdateProductInput represents the request body for updating an existing product.
+type UpdateProductInput struct {
+	Category string `json:"category"`
+	Name     string `json:"name"`
+	Price    int64  `json:"price"`
+	IsLarge  bool   `json:"isLarge"`
+	ImageURL string `json:"img"`
+}
+
+// getStockByProductID calculates the current stock for a product
+// by summing all qty_changed entries in stock_logs.
+func getStockByProductID(productID string) int {
+	var totalStock int
+	config.DB.Model(&models.StockLog{}).
+		Where("product_id = ?", productID).
+		Select("COALESCE(SUM(qty_changed), 0)").
+		Scan(&totalStock)
+	return totalStock
+}
+
+// toProductResponse converts a Product model to a ProductResponse with computed stock.
+func toProductResponse(product models.Product) models.ProductResponse {
+	return models.ProductResponse{
+		ID:        product.ID,
+		Category:  product.Category,
+		Name:      product.Name,
+		Price:     product.Price,
+		Stock:     getStockByProductID(product.ID),
+		Sold:      product.Sold,
+		IsLarge:   product.IsLarge,
+		ImageURL:  product.ImageURL,
+		CreatedAt: product.CreatedAt,
+		UpdatedAt: product.UpdatedAt,
+	}
 }
 
 // GetProducts returns a list of products with optional filtering and sorting.
@@ -61,7 +97,13 @@ func GetProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, products)
+	// Convert to responses with computed stock
+	responses := make([]models.ProductResponse, len(products))
+	for i, p := range products {
+		responses[i] = toProductResponse(p)
+	}
+
+	c.JSON(http.StatusOK, responses)
 }
 
 // CreateProduct creates a new product. Admin/Owner only.
@@ -85,7 +127,6 @@ func CreateProduct(c *gin.Context) {
 		Category: input.Category,
 		Name:     input.Name,
 		Price:    input.Price,
-		Stock:    input.Stock,
 		Sold:     0,
 		IsLarge:  input.IsLarge,
 		ImageURL: input.ImageURL,
@@ -96,8 +137,8 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	// Log initial stock
-	if product.Stock > 0 {
+	// Log initial stock in stock_logs
+	if input.Stock > 0 {
 		ownerIDVal, exists := c.Get("userId")
 		var ownerIDPtr *uint
 		if exists && ownerIDVal != nil {
@@ -109,13 +150,13 @@ func CreateProduct(c *gin.Context) {
 			ProductID:   product.ID,
 			OwnerID:     ownerIDPtr,
 			ChangeType:  "addition",
-			QtyChanged:  product.Stock,
-			FinalStock:  product.Stock,
+			QtyChanged:  input.Stock,
+			FinalStock:  input.Stock,
 			Description: "Stok Awal Produk Baru",
 		})
 	}
 
-	c.JSON(http.StatusCreated, product)
+	c.JSON(http.StatusCreated, toProductResponse(product))
 }
 
 // UpdateStock adjusts a product's stock. Owner only.
@@ -135,14 +176,14 @@ func UpdateStock(c *gin.Context) {
 		return
 	}
 
-	newStock := product.Stock + input.Amount
+	// Calculate current stock from stock_logs
+	currentStock := getStockByProductID(productID)
+	newStock := currentStock + input.Amount
 	if newStock < 0 {
 		newStock = 0
 	}
 
-	actualChange := newStock - product.Stock
-
-	config.DB.Model(&product).Update("stock", newStock)
+	actualChange := newStock - currentStock
 
 	// Log stock change
 	if actualChange != 0 {
@@ -170,21 +211,11 @@ func UpdateStock(c *gin.Context) {
 		})
 	}
 
-	product.Stock = newStock
+	resp := toProductResponse(product)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Stok berhasil diperbarui",
-		"product": product,
+		"product": resp,
 	})
-}
-
-// UpdateProductInput represents the request body for updating an existing product.
-type UpdateProductInput struct {
-	Category string `json:"category"`
-	Name     string `json:"name"`
-	Price    int64  `json:"price"`
-	Stock    int    `json:"stock"`
-	IsLarge  bool   `json:"isLarge"`
-	ImageURL string `json:"img"`
 }
 
 // UpdateProduct updates an existing product's details. Owner only.
@@ -214,7 +245,6 @@ func UpdateProduct(c *gin.Context) {
 	if input.Price > 0 {
 		updates["price"] = input.Price
 	}
-	updates["stock"] = input.Stock
 	updates["is_large"] = input.IsLarge
 	if input.ImageURL != "" {
 		updates["image_url"] = input.ImageURL
@@ -227,7 +257,7 @@ func UpdateProduct(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Produk berhasil diperbarui",
-		"product": product,
+		"product": toProductResponse(product),
 	})
 }
 
@@ -242,5 +272,5 @@ func GetProductByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, product)
+	c.JSON(http.StatusOK, toProductResponse(product))
 }

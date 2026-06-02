@@ -165,9 +165,9 @@ const handleLogout = () => {
                         <h4>Kategori</h4>
                         <ul class="footer-links">
                             <li><Link href="/katalog?category=Semen">Semen</Link></li>
-                            <li><Link href="/katalog?category=Plumbing">Plumbing</Link></li>
+                            <li><Link href="/katalog?category=Perpipaan">Perpipaan</Link></li>
                             <li><Link href="/katalog?category=Cat Tembok">Cat Tembok</Link></li>
-                            <li><Link href="/katalog?category=Tools">Tools</Link></li>
+                            <li><Link href="/katalog?category=Perkakas">Perkakas</Link></li>
                         </ul>
                     </div>
                     <div v-else>

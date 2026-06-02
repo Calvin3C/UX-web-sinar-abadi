@@ -129,10 +129,9 @@ class ApiService
     /**
      * Get a single product by ID.
      */
-    public function getProductById(string $token, string $productId): array
+    public function getProductById(string $productId): array
     {
         $response = Http::timeout(10)
-            ->withToken($token)
             ->get("{$this->baseUrl}/products/{$productId}");
 
         return [

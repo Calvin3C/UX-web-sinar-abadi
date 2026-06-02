@@ -27,6 +27,8 @@ Route::get('/katalog', function (\Illuminate\Http\Request $request) {
     return app(CatalogController::class)->index($request);
 })->name('katalog');
 
+Route::get('/katalog/{id}', [CatalogController::class, 'show'])->name('katalog.show');
+
 // Auth
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.process');
@@ -62,8 +64,8 @@ Route::middleware('auth.api:customer')->prefix('customer')->name('customer.')->g
 // =====================================================================
 Route::middleware('auth.api:admin')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
-    Route::put('/orders/{id}/status', [AdminController::class, 'updateStatus'])->name('update-status');
     Route::put('/users/{username}/block', [AdminController::class, 'toggleBlock'])->name('toggle-block');
+    Route::put('/orders/{id}/shipping', [AdminController::class, 'updateShipping'])->name('update-shipping');
 });
 
 // =====================================================================
@@ -71,8 +73,8 @@ Route::middleware('auth.api:admin')->prefix('admin')->name('admin.')->group(func
 // =====================================================================
 Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(function () {
     Route::get('/dashboard', [OwnerController::class, 'dashboard'])->name('dashboard');
+    Route::put('/orders/{id}/status', [OwnerController::class, 'updateStatus'])->name('update-status');
     Route::put('/products/{id}/stock', [OwnerController::class, 'updateStock'])->name('update-stock');
-    Route::put('/orders/{id}/shipping', [OwnerController::class, 'updateShipping'])->name('update-shipping');
     Route::post('/admins', [OwnerController::class, 'createAdmin'])->name('create-admin');
     Route::delete('/admins/{username}', [OwnerController::class, 'deleteAdmin'])->name('delete-admin');
 
