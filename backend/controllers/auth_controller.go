@@ -13,14 +13,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// RegisterInput represents the request body for customer registration.
+// RegisterInput represents the request body for customer/admin/owner registration.
 type RegisterInput struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Phone    string `json:"phone" binding:"required"`
-	Email    string `json:"email" binding:"required"`
-	Gender   string `json:"gender" binding:"required"`
+	Role     string `json:"role" binding:"required"` // customer | admin | owner
+	Name     string `json:"name"`
+	Phone    string `json:"phone"`
+	Email    string `json:"email"`
+	Gender   string `json:"gender"`
 }
 
 // LoginInput represents the request body for user login.
@@ -30,18 +31,21 @@ type LoginInput struct {
 	Role     string `json:"role" binding:"required"` // customer | admin | owner
 }
 
-// Register creates a new customer account.
+// Register creates a new account (Customer/Admin/Owner).
 // POST /api/register
 func Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi semua field yang diperlukan"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi semua field yang diperlukan (username, password, role)"})
 		return
 	}
 
-	// Check if username already exists in Customer
-	var existing models.Customer
-	if result := config.DB.Where("username = ?", input.Username).First(&existing); result.RowsAffected > 0 {
+	// Check if username already exists in any table
+	var customerCount, adminCount, ownerCount int64
+	config.DB.Model(&models.Customer{}).Where("username = ?", input.Username).Count(&customerCount)
+	config.DB.Model(&models.Admin{}).Where("username = ?", input.Username).Count(&adminCount)
+	config.DB.Model(&models.Owner{}).Where("username = ?", input.Username).Count(&ownerCount)
+	if customerCount > 0 || adminCount > 0 || ownerCount > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username sudah terdaftar"})
 		return
 	}
@@ -53,30 +57,86 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	customer := models.Customer{
-		Username:  input.Username,
-		Password:  string(hashedPassword),
-		Name:      input.Name,
-		Phone:     input.Phone,
-		Email:     input.Email,
-		Gender:    input.Gender,
-		IsBlocked: false,
-	}
+	switch input.Role {
+	case "customer":
+		if input.Name == "" || input.Phone == "" || input.Email == "" || input.Gender == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi profil (nama, telepon, email, gender) untuk mendaftar sebagai customer"})
+			return
+		}
+		customer := models.Customer{
+			Username:  input.Username,
+			Password:  string(hashedPassword),
+			Name:      input.Name,
+			Phone:     input.Phone,
+			Email:     input.Email,
+			Gender:    input.Gender,
+			IsBlocked: false,
+		}
+		if result := config.DB.Create(&customer); result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun customer"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Akun customer berhasil terdaftar",
+			"user": gin.H{
+				"username":  customer.Username,
+				"role":      "customer",
+				"name":      customer.Name,
+				"isBlocked": customer.IsBlocked,
+			},
+		})
 
-	if result := config.DB.Create(&customer); result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun"})
-		return
-	}
+	case "admin":
+		name := input.Name
+		if name == "" {
+			name = "Admin " + input.Username
+		}
+		admin := models.Admin{
+			Username:  input.Username,
+			Password:  string(hashedPassword),
+			Name:      name,
+			IsBlocked: false,
+		}
+		if result := config.DB.Create(&admin); result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun admin"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Akun admin berhasil terdaftar",
+			"user": gin.H{
+				"username":  admin.Username,
+				"role":      "admin",
+				"name":      admin.Name,
+				"isBlocked": admin.IsBlocked,
+			},
+		})
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Akun berhasil terdaftar",
-		"user": gin.H{
-			"username":  customer.Username,
-			"role":      "customer",
-			"name":      customer.Name,
-			"isBlocked": customer.IsBlocked,
-		},
-	})
+	case "owner":
+		name := input.Name
+		if name == "" {
+			name = "Owner " + input.Username
+		}
+		owner := models.Owner{
+			Username:  input.Username,
+			Password:  string(hashedPassword),
+			Name:      name,
+		}
+		if result := config.DB.Create(&owner); result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun owner"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Akun owner berhasil terdaftar",
+			"user": gin.H{
+				"username": owner.Username,
+				"role":     "owner",
+				"name":     owner.Name,
+			},
+		})
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Role tidak valid"})
+	}
 }
 
 // Login authenticates a user and returns a JWT token.

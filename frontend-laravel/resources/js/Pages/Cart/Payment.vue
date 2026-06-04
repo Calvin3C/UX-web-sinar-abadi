@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, Link } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useAddresses } from '@/Composables/useAddresses';
 
 const props = defineProps({
@@ -49,8 +49,10 @@ const checkoutForm = useForm({
     phone: selectedAddress.value.phone,
     courier: selectedAddress.value.id === 99 ? 'Ambil Di Toko' : 'JNE',
     proof: null,
-    biteship_area_id: '',
+    biteship_area_id: selectedAddress.value.biteshipAreaId || '',
     shipping_cost: 0,
+    courier_code: '',
+    courier_service_code: '',
 });
 
 const handleProofUpload = (e) => {
@@ -69,8 +71,8 @@ const fetchRates = async (addr) => {
     if (!addr.biteshipAreaId) {
         // Fallback for mock data without biteshipAreaId
         availableRates.value = [
-             { id: 1, courier_name: 'JNE', courier_service_name: 'REG', price: 15000, duration: '2-3 hari' },
-             { id: 2, courier_name: 'SiCepat', courier_service_name: 'HALU', price: 12000, duration: '2-4 hari' }
+             { id: 1, courier_name: 'JNE', courier_code: 'jne', courier_service_name: 'REG', courier_service_code: 'reg', price: 15000, duration: '2-3 hari' },
+             { id: 2, courier_name: 'SiCepat', courier_code: 'sicepat', courier_service_name: 'HALU', courier_service_code: 'halu', price: 12000, duration: '2-4 hari' }
         ];
         return;
     }
@@ -84,7 +86,10 @@ const fetchRates = async (addr) => {
                 name: item.name,
                 value: item.price,
                 quantity: item.qty,
-                weight: item.isLarge ? 15000 : 2000 // 15kg or 2kg
+                weight: item.weight && item.weight > 0 ? item.weight : (item.isLarge ? 15000 : 2000),
+                length: item.length && item.length > 0 ? item.length : 1,
+                width: item.width && item.width > 0 ? item.width : 1,
+                height: item.height && item.height > 0 ? item.height : 1
             }))
         };
         const res = await fetch('http://localhost:8080/api/biteship/rates', {
@@ -95,7 +100,13 @@ const fetchRates = async (addr) => {
         
         if (res.ok) {
             const data = await res.json();
-            availableRates.value = data.pricing || [];
+            // Map Biteship response to include courier_code and courier_service_code
+            // Biteship returns 'pricing' array with courier_name, courier_code, courier_service_name, courier_service_code
+            availableRates.value = (data.pricing || []).map(rate => ({
+                ...rate,
+                courier_code: rate.courier_code || '',
+                courier_service_code: rate.courier_service_code || '',
+            }));
         }
     } catch (e) {
         console.error("Failed to fetch rates", e);
@@ -127,6 +138,8 @@ const selectAddress = async (addr) => {
 const selectCourierRate = (rate) => {
     selectedRate.value = rate;
     checkoutForm.courier = `${rate.courier_name} ${rate.courier_service_name}`;
+    checkoutForm.courier_code = rate.courier_code || '';
+    checkoutForm.courier_service_code = rate.courier_service_code || '';
 };
 
 // Automatically select default address based on tab change
@@ -139,6 +152,13 @@ watch(activeTab, (newTab) => {
             return;
         }
         selectAddress(selectedAddress.value.id === 99 ? mockAddresses.value[0] : selectedAddress.value);
+    }
+});
+
+onMounted(() => {
+    if (selectedAddress.value && selectedAddress.value.id !== 99 && activeTab.value === 'semua') {
+        checkoutForm.biteship_area_id = selectedAddress.value.biteshipAreaId || '';
+        fetchRates(selectedAddress.value);
     }
 });
 
@@ -243,6 +263,10 @@ const grandTotal = computed(() => {
 });
 
 const handleCheckout = () => {
+    if (!confirm('Pastikan alamat pengiriman sudah benar dan kurir pengiriman sudah sesuai.')) {
+        return;
+    }
+
     checkoutForm.bank = selectedBank.value;
     checkoutForm.shipping_cost = currentShippingCost.value;
     checkoutForm.post('/checkout', {
@@ -301,6 +325,45 @@ const handleCheckout = () => {
                                     Ganti
                                 </button>
                             </div>
+                        </div>
+
+                        <!-- KURIR PENGIRIMAN -->
+                        <div style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px;">
+                            <h3 style="font-size: 14px; font-weight: 700; color: #64748b; margin-bottom: 16px; text-transform: uppercase;">KURIR PENGIRIMAN</h3>
+                            
+                            <template v-if="checkoutForm.courier === 'Ambil Di Toko'">
+                                <div style="font-weight: 700; font-size: 14px; color: #0f172a;">Ambil Di Toko</div>
+                                <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Barang diambil sendiri di toko Sinar Abadi. (Gratis)</div>
+                            </template>
+                            <template v-else-if="checkoutForm.courier === 'Kurir Toko Sinar Abadi'">
+                                <div style="font-weight: 700; font-size: 14px; color: #0f172a;">Kurir Toko Sinar Abadi</div>
+                                <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Dikirim oleh armada toko kami.</div>
+                            </template>
+                            <template v-else>
+                                <div v-if="isFetchingRates" style="font-size: 13px; color: #64748b; padding: 12px; text-align: center;">
+                                    Menghitung ongkos kirim...
+                                </div>
+                                <div v-else-if="availableRates.length === 0" style="font-size: 13px; color: #dc2626;">
+                                    Gagal mendapatkan daftar ongkos kirim untuk alamat ini. Pastikan alamat memiliki kecamatan/kodepos yang valid.
+                                </div>
+                                <div v-else style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div 
+                                        v-for="(rate, idx) in availableRates" 
+                                        :key="idx"
+                                        @click="selectCourierRate(rate)"
+                                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;"
+                                        :style="selectedRate === rate ? { borderColor: '#e11d48', background: '#fff1f2' } : { background: 'white' }"
+                                    >
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 14px; color: #0f172a;">{{ rate.courier_name }} ({{ rate.courier_service_name }})</div>
+                                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Estimasi: {{ rate.duration }}</div>
+                                        </div>
+                                        <div style="font-weight: 800; font-size: 14px; color: #0f172a;">
+                                            {{ formatPrice(rate.price) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         <!-- METODE PEMBAYARAN -->
@@ -373,8 +436,8 @@ const handleCheckout = () => {
                                     type="submit" 
                                     class="btn w-100" 
                                     style="background: #0f172a; color: white; font-size:14px; padding:16px; font-weight: 700; border-radius: 6px;"
-                                    :disabled="checkoutForm.processing || !checkoutForm.proof"
-                                    :style="(!checkoutForm.proof) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
+                                    :disabled="checkoutForm.processing || !checkoutForm.proof || (activeTab === 'semua' && !selectedRate)"
+                                    :style="(!checkoutForm.proof || (activeTab === 'semua' && !selectedRate)) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
                                 >
                                     <span v-if="checkoutForm.processing">MEMBUAT PESANAN...</span>
                                     <span v-else>BAYAR SEKARANG</span>
@@ -418,9 +481,16 @@ const handleCheckout = () => {
                                     </div>
                                     <div>
                                         <div style="font-size: 13px; color: #1e293b; font-weight: 600; line-height: 1.4;">{{ item.name }}</div>
+                                        <div v-if="item.color" style="font-size: 12px; color: #64748b; margin-top: 2px;">Warna: <span style="font-weight: 500;">{{ item.color }}</span></div>
                                         <div style="font-size: 12px; color: #64748b; margin-top: 4px;">{{ item.qty }} x {{ formatPrice(item.price) }}</div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="d-flex justify-end mt-2" style="border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                                <Link href="/cart" style="font-size: 13px; font-weight: 700; color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    Edit
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -484,7 +554,7 @@ const handleCheckout = () => {
                             :key="addr.id" 
                             @click="selectAddress(addr)"
                             style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; cursor: pointer; position: relative;"
-                            :style="selectedAddress.id === addr.id ? { borderColor: '#e11d48', background: '#ffe4e6' } : {}"
+                            :style="selectedAddress.id === addr.id ? { borderColor: '#e11d48' } : {}"
                         >
                             <div class="d-flex align-center gap-2 mb-2">
                                 <span style="font-weight: 700; color: #0f172a; font-size: 14px;">{{ addr.label }}</span>
@@ -515,36 +585,6 @@ const handleCheckout = () => {
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                             </div>
 
-                            <!-- Courier Selection UI inside the selected address -->
-                            <div v-if="selectedAddress.id === addr.id && activeTab === 'semua'" style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #cbd5e1;">
-                                <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 12px;">Pilih Kurir Pengiriman (Biteship)</div>
-                                
-                                <div v-if="isFetchingRates" style="font-size: 13px; color: #64748b; padding: 12px; text-align: center;">
-                                    Menghitung ongkos kirim...
-                                </div>
-                                
-                                <div v-else-if="availableRates.length === 0" style="font-size: 13px; color: #dc2626;">
-                                    Gagal mendapatkan daftar ongkos kirim untuk alamat ini. Pastikan alamat memiliki kecamatan/kodepos yang valid.
-                                </div>
-                                
-                                <div v-else style="display: flex; flex-direction: column; gap: 8px;">
-                                    <div 
-                                        v-for="(rate, idx) in availableRates" 
-                                        :key="idx"
-                                        @click.stop="selectCourierRate(rate)"
-                                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;"
-                                        :style="selectedRate === rate ? { borderColor: '#e11d48', background: '#fff1f2' } : { background: 'white' }"
-                                    >
-                                        <div>
-                                            <div style="font-weight: 700; font-size: 14px; color: #0f172a;">{{ rate.courier_name }} ({{ rate.courier_service_name }})</div>
-                                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Estimasi: {{ rate.duration }}</div>
-                                        </div>
-                                        <div style="font-weight: 800; font-size: 14px; color: #0f172a;">
-                                            {{ formatPrice(rate.price) }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -553,7 +593,7 @@ const handleCheckout = () => {
                     <div 
                         @click="selectAddress(storeAddress)"
                         style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; cursor: pointer; position: relative;"
-                        :style="selectedAddress.id === storeAddress.id ? { borderColor: '#059669', background: '#ecfdf5' } : {}"
+                        :style="selectedAddress.id === storeAddress.id ? { borderColor: '#e11d48' } : {}"
                     >
                         <div style="font-weight: 700; color: #0f172a; font-size: 15px; margin-bottom: 12px;">Ambil Di Toko</div>
                         <div style="font-size: 13px; color: #334155; line-height: 1.6; max-width: 90%;">
@@ -561,25 +601,19 @@ const handleCheckout = () => {
                         </div>
                         
                         <!-- Checkmark -->
-                        <div v-if="selectedAddress.id === storeAddress.id" style="position: absolute; right: 16px; top: 20px; color: #059669;">
+                        <div v-if="selectedAddress.id === storeAddress.id" style="position: absolute; right: 16px; top: 20px; color: #e11d48;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                     </div>
                 </div>
 
-                <!-- Footer with Save Button -->
                 <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; background: white;">
-                    <div v-if="activeTab === 'semua' && !selectedRate" style="font-size: 13px; color: #dc2626; text-align: center; margin-bottom: 8px;">
-                        Pilih kurir pengiriman terlebih dahulu.
-                    </div>
                     <button 
                         @click="isAddressModalOpen = false" 
                         class="btn btn-primary w-100" 
-                        style="background: #059669; border-color: #059669; padding: 14px; font-weight: 700; border-radius: 8px;"
-                        :disabled="activeTab === 'semua' && !selectedRate"
-                        :style="(activeTab === 'semua' && !selectedRate) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
+                        style="background: #e11d48; border-color: #e11d48; padding: 14px; font-weight: 700; border-radius: 8px;"
                     >
-                        Simpan & Selesai
+                        Pilih Alamat
                     </button>
                 </div>
             </div>

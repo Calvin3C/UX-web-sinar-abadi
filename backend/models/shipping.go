@@ -12,6 +12,10 @@ type Shipping struct {
 	ShippingCost       int64     `gorm:"not null;default:0" json:"shippingCost"`
 	DestinationAddress string    `gorm:"type:text;not null" json:"destinationAddress"`
 	BiteshipAreaID     string    `json:"biteshipAreaId"` // Added for Biteship integration
+	CourierCode        string    `gorm:"size:50" json:"courierCode"`        // e.g. "jne", "sicepat"
+	CourierServiceCode string    `gorm:"size:50" json:"courierServiceCode"` // e.g. "reg", "best", "jtr", "gokil"
+	BiteshipOrderID    string    `gorm:"size:100" json:"biteshipOrderId"`
+	WaybillID          string    `gorm:"size:100" json:"waybillId"`
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
 }

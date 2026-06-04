@@ -3,6 +3,8 @@ package controllers
 import (
 	"net/http"
 
+	"sinar-abadi-backend/config"
+	"sinar-abadi-backend/models"
 	"sinar-abadi-backend/services"
 
 	"github.com/gin-gonic/gin"
@@ -59,15 +61,70 @@ func BiteshipWebhook(c *gin.Context) {
 		OrderID     string `json:"order_id"`
 		Status      string `json:"status"`
 		ReferenceID string `json:"reference_id"` // This is our order_id
+		Courier     struct {
+			WaybillID string `json:"waybill_id"`
+		} `json:"courier"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		// Just log and return 200 so Biteship doesn't retry infinitely on bad payload
 		c.JSON(http.StatusOK, gin.H{"message": "Webhook received with bad payload"})
 		return
 	}
 
-	// For the activation test, they might send a dummy webhook
-	// A simple 200 OK is enough for Biteship to verify the webhook is alive
+	// Update waybill_id and shipping status if order_id is present
+	if payload.ReferenceID != "" || payload.OrderID != "" {
+		updates := map[string]interface{}{}
+		if payload.Courier.WaybillID != "" {
+			updates["waybill_id"] = payload.Courier.WaybillID
+		}
+		
+		// Map Biteship status to Sinar Abadi status if needed
+		orderUpdates := map[string]interface{}{}
+		if payload.Status == "dropped" || payload.Status == "shipping" {
+			orderUpdates["shipping_status"] = "Sedang Dikirim"
+		} else if payload.Status == "delivered" {
+			orderUpdates["status"] = "completed"
+			orderUpdates["shipping_status"] = "Pesanan Selesai"
+		}
+
+		if len(updates) > 0 {
+			if payload.ReferenceID != "" {
+				config.DB.Model(&models.Shipping{}).Where("order_id = ?", payload.ReferenceID).Updates(updates)
+			} else {
+				config.DB.Model(&models.Shipping{}).Where("biteship_order_id = ?", payload.OrderID).Updates(updates)
+			}
+		}
+
+		if len(orderUpdates) > 0 {
+			if payload.ReferenceID != "" {
+				config.DB.Model(&models.Order{}).Where("id = ?", payload.ReferenceID).Updates(orderUpdates)
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Webhook received successfully"})
+}
+
+// GetTracking handles frontend requests for tracking information
+func GetTracking(c *gin.Context) {
+	orderID := c.Param("id")
+
+	var shipping models.Shipping
+	if err := config.DB.Where("order_id = ?", orderID).First(&shipping).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pengiriman tidak ditemukan"})
+		return
+	}
+
+	if shipping.BiteshipOrderID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pesanan ini tidak menggunakan resi otomatis Biteship"})
+		return
+	}
+
+	result, err := services.TrackOrder(shipping.BiteshipOrderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal melacak pesanan: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

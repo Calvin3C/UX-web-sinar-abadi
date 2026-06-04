@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"sinar-abadi-backend/config"
@@ -10,6 +11,7 @@ import (
 	"sinar-abadi-backend/middleware"
 	"sinar-abadi-backend/models"
 	"sinar-abadi-backend/seed"
+	"sinar-abadi-backend/services"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -87,6 +89,7 @@ func main() {
 		orderRoutes.GET("", controllers.GetOrders) // role-based filtering inside handler
 		orderRoutes.GET("/:id", controllers.GetOrderByID)
 		orderRoutes.PUT("/:id/status", middleware.RoleRequired("admin", "owner"), controllers.UpdateOrderStatus)
+		orderRoutes.PUT("/:id/complete", middleware.RoleRequired("customer"), controllers.CompleteOrderCustomer)
 		orderRoutes.PUT("/:id/proof", middleware.RoleRequired("customer"), controllers.UploadProof)
 	}
 
@@ -104,6 +107,7 @@ func main() {
 	api.GET("/biteship/maps", controllers.SearchBiteshipAreas)
 	api.POST("/biteship/rates", controllers.CalculateRates)
 	api.POST("/biteship/webhook", controllers.BiteshipWebhook)
+	api.GET("/biteship/tracking/:id", controllers.GetTracking)
 
 	// --- Users (Admin/Owner) ---
 	userRoutes := api.Group("/users")
@@ -128,6 +132,56 @@ func main() {
 			"version": "1.0.0",
 		})
 	})
+
+	// ==================================================================
+	// Background Worker for Syncing Order Status with Biteship
+	// ==================================================================
+	go func() {
+		// Wait a bit before starting
+		time.Sleep(10 * time.Second)
+		for {
+			// Find all orders that are currently "success" or "shipping"
+			var activeOrders []models.Order
+			if err := config.DB.Where("status IN ?", []string{"success", "SUCCESS", "shipping", "SHIPPING"}).Find(&activeOrders).Error; err == nil {
+				for _, order := range activeOrders {
+					// Check if there is a shipping record with BiteshipOrderID
+					var shipping models.Shipping
+					if err := config.DB.Where("order_id = ?", order.ID).First(&shipping).Error; err == nil && shipping.BiteshipOrderID != "" {
+						// Fetch latest tracking from Biteship
+						trackRes, err := services.TrackOrder(shipping.BiteshipOrderID)
+						if err == nil && trackRes["success"] == true {
+							if data, ok := trackRes["data"].(map[string]interface{}); ok {
+								statusRaw, _ := data["status"].(string)
+								if statusRaw != "" {
+									// Map Biteship status to Sinar Abadi
+									newStatus := order.Status
+									if statusRaw == "picking_up" || statusRaw == "allocated" || statusRaw == "placed" {
+										// Kept as success (Diproses)
+										newStatus = "success"
+									} else if statusRaw == "picked" || statusRaw == "dropping_off" {
+										// Moved to shipping (Dikirim)
+										newStatus = "shipping"
+									} else if statusRaw == "delivered" {
+										// Moved to completed (Selesai)
+										newStatus = "completed"
+									} else if statusRaw == "cancelled" {
+										newStatus = "cancelled"
+									}
+									
+									// If status changed, update DB
+									if newStatus != order.Status && newStatus != strings.ToLower(order.Status) {
+										config.DB.Model(&order).Update("status", newStatus)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			// Sync every 2 minutes
+			time.Sleep(2 * time.Minute)
+		}
+	}()
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

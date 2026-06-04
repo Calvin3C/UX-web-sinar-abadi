@@ -36,7 +36,15 @@ class OwnerController extends Controller
 
         // Calculate stats
         $completedOrders = array_filter($orders, fn($o) => in_array(strtolower($o['status'] ?? ''), ['success', 'completed']));
-        $totalRevenue = collect($completedOrders)->sum('total');
+        $totalRevenue = 0;
+        foreach ($completedOrders as $order) {
+            if (isset($order['items']) && is_array($order['items'])) {
+                foreach ($order['items'] as $item) {
+                    $totalRevenue += ($item['price'] * $item['qty']);
+                }
+            }
+        }
+        
         $stockIssues = count(array_filter($products, fn($p) => ($p['stock'] ?? 0) <= 5));
 
         return Inertia::render('Owner/Dashboard', [
@@ -153,7 +161,7 @@ class OwnerController extends Controller
     public function editProduct(string $productId)
     {
         $token = session('auth_token');
-        $result = $this->api->getProductById($token, $productId);
+        $result = $this->api->getProductById($productId);
 
         if (!$result['success']) {
             return redirect()->route('owner.dashboard')->with('error', 'Produk tidak ditemukan.');
@@ -185,6 +193,10 @@ class OwnerController extends Controller
             'category'   => 'required|string',
             'price'      => 'required|integer|min:0',
             'stock'      => 'required|integer|min:0',
+            'brand'      => 'nullable|string',
+            'weight'     => 'nullable|integer|min:0',
+            'unit'       => 'nullable|string',
+            'minPurchase'=> 'nullable|integer|min:1',
             'photo_main' => 'nullable|file|image|max:4096',
             'photo_1'    => 'nullable|file|image|max:4096',
             'photo_2'    => 'nullable|file|image|max:4096',
@@ -211,13 +223,17 @@ class OwnerController extends Controller
 
         $token = session('auth_token');
         $result = $this->api->createProduct($token, [
-            'id'       => $request->input('id'),
-            'name'     => $request->input('name'),
-            'category' => $request->input('category'),
-            'price'    => (int) $request->input('price'),
-            'stock'    => (int) $request->input('stock'),
-            'isLarge'  => (bool) $request->input('isLarge', false),
-            'img'      => $imgUrl,
+            'id'          => $request->input('id'),
+            'name'        => $request->input('name'),
+            'category'    => $request->input('category'),
+            'brand'       => $request->input('brand', ''),
+            'weight'      => (int) $request->input('weight', 0),
+            'unit'        => $request->input('unit', ''),
+            'minPurchase' => (int) $request->input('minPurchase', 1),
+            'price'       => (int) $request->input('price'),
+            'stock'       => (int) $request->input('stock'),
+            'isLarge'     => (bool) $request->input('isLarge', false),
+            'img'         => $imgUrl,
         ]);
 
         if (!$result['success']) {
@@ -237,6 +253,11 @@ class OwnerController extends Controller
             'name'       => 'required|string',
             'category'   => 'required|string',
             'price'      => 'required|integer|min:0',
+            'stock'      => 'nullable|integer|min:0',
+            'brand'      => 'nullable|string',
+            'weight'     => 'nullable|integer|min:0',
+            'unit'       => 'nullable|string',
+            'minPurchase'=> 'nullable|integer|min:1',
             'photo_main' => 'nullable|file|image|max:4096',
             'photo_1'    => 'nullable|file|image|max:4096',
             'photo_2'    => 'nullable|file|image|max:4096',
@@ -261,16 +282,32 @@ class OwnerController extends Controller
 
         $token = session('auth_token');
         $result = $this->api->updateProduct($token, $productId, [
-            'name'     => $request->input('name'),
-            'category' => $request->input('category'),
-            'price'    => (int) $request->input('price'),
-            'isLarge'  => (bool) $request->input('isLarge', false),
-            'img'      => $imgUrl,
+            'name'        => $request->input('name'),
+            'category'    => $request->input('category'),
+            'brand'       => $request->input('brand', ''),
+            'weight'      => (int) $request->input('weight', 0),
+            'unit'        => $request->input('unit', ''),
+            'minPurchase' => (int) $request->input('minPurchase', 1),
+            'price'       => (int) $request->input('price'),
+            'isLarge'     => (bool) $request->input('isLarge', false),
+            'img'         => $imgUrl,
         ]);
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal memperbarui produk.';
             return back()->withErrors(['name' => $error]);
+        }
+
+        if ($request->has('stock')) {
+            $newStock = (int) $request->input('stock');
+            $currentProduct = $this->api->getProductById($productId);
+            if ($currentProduct['success']) {
+                $currentStock = $currentProduct['data']['stock'] ?? 0;
+                $diff = $newStock - $currentStock;
+                if ($diff !== 0) {
+                    $this->api->updateStock($token, $productId, $diff);
+                }
+            }
         }
 
         return redirect()->route('owner.dashboard')->with('success', 'Produk berhasil diperbarui.');

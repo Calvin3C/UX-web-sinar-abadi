@@ -29,6 +29,7 @@ const props = defineProps({
 const activeTab = ref('products'); // 'products', 'orders', or 'admins'
 const productFilter = ref('aktif'); // 'aktif' or 'habis'
 const searchQuery = ref('');
+const categoryFilter = ref('');
 
 // Modals State
 const isStockModalOpen = ref(false);
@@ -70,7 +71,7 @@ const getStatusClass = (status) => {
         case 'pending': return 'pending';
         case 'success': return 'success';
         case 'verified': return 'success';
-        case 'shipping': return 'info';
+        case 'shipping': return 'pending';
         case 'completed': return 'success';
         case 'cancelled': return 'cancelled';
         default: return 'pending';
@@ -79,10 +80,10 @@ const getStatusClass = (status) => {
 
 const getStatusLabel = (status) => {
     switch (status?.toLowerCase()) {
-        case 'pending': return 'Belum Bayar';
-        case 'success': return 'SUCCESS';
-        case 'verified': return 'SUCCESS';
-        case 'shipping': return 'Dalam Pengiriman';
+        case 'pending': return 'Menunggu Konfirmasi';
+        case 'success': return 'Diproses';
+        case 'verified': return 'Diproses';
+        case 'shipping': return 'Dikirim';
         case 'completed': return 'Selesai';
         case 'cancelled': return 'Dibatalkan';
         default: return status;
@@ -121,6 +122,11 @@ const filteredProducts = computed(() => {
         );
     }
     
+    // Category filter
+    if (categoryFilter.value) {
+        list = list.filter(p => p.category === categoryFilter.value);
+    }
+    
     // Stock tab filter
     if (productFilter.value === 'habis') {
         list = list.filter(p => (p.stock ?? 0) <= 0);
@@ -131,9 +137,68 @@ const filteredProducts = computed(() => {
     return list;
 });
 
+const uniqueCategories = computed(() => {
+    if (!props.products) return [];
+    const categories = new Set(props.products.map(p => p.category).filter(Boolean));
+    return Array.from(categories).sort();
+});
+
+const orderSearchQuery = ref('');
+const orderDateFilter = ref('');
+const orderStatusFilter = ref('Semua');
+
+const filteredOrders = computed(() => {
+    let ordersToFilter = props.orders || [];
+    
+    if (orderSearchQuery.value) {
+        const q = orderSearchQuery.value.toLowerCase();
+        ordersToFilter = ordersToFilter.filter(o => 
+            o.id.toLowerCase().includes(q) || 
+            (o.items && o.items.some(item => item.name.toLowerCase().includes(q)))
+        );
+    }
+    
+    if (orderDateFilter.value) {
+        ordersToFilter = ordersToFilter.filter(o => {
+            if (!o.createdAt) return false;
+            // Handle ISO date format YYYY-MM-DD
+            return o.createdAt.startsWith(orderDateFilter.value);
+        });
+    }
+
+    if (orderStatusFilter.value && orderStatusFilter.value !== 'Semua') {
+        ordersToFilter = ordersToFilter.filter(o => {
+            const s = o.status?.toLowerCase();
+            const filterMap = {
+                'Menunggu Konfirmasi': ['pending'],
+                'Diproses': ['success'],
+                'Dikirim': ['shipping'],
+                'Dibatalkan': ['cancelled'],
+                'Selesai': ['completed']
+            };
+            const expectedStatuses = filterMap[orderStatusFilter.value] || [];
+            return expectedStatuses.includes(s);
+        });
+    }
+    
+    return ordersToFilter;
+});
+
+const resetOrderFilters = () => {
+    orderSearchQuery.value = '';
+    orderDateFilter.value = '';
+    orderStatusFilter.value = 'Semua';
+};
+
 
 
 const updateOrderStatus = (orderId, nextStatus) => {
+    if (nextStatus === 'cancelled') {
+        if (!confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) {
+            return;
+        }
+    }
+    
     router.put(`/owner/orders/${orderId}/status`, { status: nextStatus }, {
         preserveScroll: true,
     });
@@ -224,55 +289,65 @@ const handleDeleteAdmin = (adminUsername) => {
                         </div>
 
                         <!-- Search + Filter + Add Button Row -->
-                        <div class="d-flex justify-between align-center w-100" style="gap: 12px;">
-                            <div class="d-flex align-center" style="gap: 10px;">
-                                <!-- Search Bar -->
-                                <div style="position: relative;">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                    </svg>
-                                    <input 
-                                        v-model="searchQuery"
-                                        type="text" 
-                                        placeholder="Cari Nama Produk" 
-                                        style="padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; width: 220px; outline: none; background: white;"
-                                    >
+                        <div class="d-flex justify-between align-center w-100" style="gap: 12px; flex-wrap: wrap;">
+                            <div class="d-flex" style="gap: 10px; flex-direction: column;">
+                                <div class="d-flex align-center" style="gap: 10px;">
+                                    <!-- Search Bar -->
+                                    <div style="position: relative;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                        </svg>
+                                        <input 
+                                            v-model="searchQuery"
+                                            type="text" 
+                                            placeholder="Cari Nama Produk" 
+                                            style="padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; width: 220px; outline: none; background: white;"
+                                        >
+                                    </div>
+                                    <!-- Filter Button -->
+                                    <button style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="4" y1="6" x2="20" y2="6"></line>
+                                            <line x1="6" y1="12" x2="18" y2="12"></line>
+                                            <line x1="8" y1="18" x2="16" y2="18"></line>
+                                        </svg>
+                                    </button>
                                 </div>
-                                <!-- Filter Button -->
-                                <button style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <line x1="4" y1="6" x2="20" y2="6"></line>
-                                        <line x1="6" y1="12" x2="18" y2="12"></line>
-                                        <line x1="8" y1="18" x2="16" y2="18"></line>
-                                    </svg>
-                                </button>
+                                
+                                <div class="d-flex align-center" style="gap: 12px; flex-wrap: wrap;">
+                                    <!-- Category Dropdown Filter -->
+                                    <select v-model="categoryFilter" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; background: white; width: fit-content; min-width: 160px;">
+                                        <option value="">Semua Kategori</option>
+                                        <option v-for="cat in uniqueCategories" :key="cat" :value="cat">{{ cat }}</option>
+                                    </select>
+
+                                    <!-- Aktif / Stok Habis Pills -->
+                                    <div class="d-flex align-center" style="background: #f1f5f9; padding: 4px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                        <div 
+                                            @click="productFilter = 'aktif'"
+                                            style="padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; transition: all 0.2s;"
+                                            :style="productFilter === 'aktif' ? 'background: white; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1);' : 'color: #64748b;'"
+                                        >
+                                            Stok Tersedia
+                                        </div>
+                                        <div 
+                                            @click="productFilter = 'habis'"
+                                            style="padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; transition: all 0.2s;"
+                                            :style="productFilter === 'habis' ? 'background: white; color: #dc2626; box-shadow: 0 1px 3px rgba(0,0,0,0.1);' : 'color: #64748b;'"
+                                        >
+                                            Stok Habis
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <!-- Add Product Button -->
                             <Link 
                                 href="/owner/products/create"
-                                style="padding: 8px 18px; font-size: 13px; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; background: white; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all 0.2s;"
+                                style="padding: 8px 18px; font-size: 13px; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; background: white; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all 0.2s; align-self: flex-start;"
                             >
                                 + Tambah Produk Baru
                             </Link>
-                        </div>
-
-                        <!-- Aktif / Stok Habis Tabs -->
-                        <div class="d-flex" style="gap: 0; border-bottom: 1px solid #e2e8f0; margin: 0 -24px; padding: 0 24px;">
-                            <div 
-                                @click="productFilter = 'aktif'"
-                                style="padding: 10px 16px; font-size: 14px; cursor: pointer; position: relative;"
-                                :style="productFilter === 'aktif' ? 'font-weight: 700; color: #0f172a; border-bottom: 2px solid #0f172a;' : 'font-weight: 500; color: #64748b;'"
-                            >
-                                Aktif
-                            </div>
-                            <div 
-                                @click="productFilter = 'habis'"
-                                style="padding: 10px 16px; font-size: 14px; cursor: pointer; position: relative;"
-                                :style="productFilter === 'habis' ? 'font-weight: 700; color: #0f172a; border-bottom: 2px solid #0f172a;' : 'font-weight: 500; color: #64748b;'"
-                            >
-                                Stok Habis
-                            </div>
                         </div>
                     </div>
 
@@ -320,8 +395,37 @@ const handleDeleteAdmin = (adminUsername) => {
 
                 <!-- Tab 2: Orders -->
                 <div v-else-if="activeTab === 'orders'" class="table-card">
-                    <div class="table-header">
-                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a;">Histori Transaksi</h3>
+                    <div class="table-header" style="flex-direction: column; gap: 16px;">
+                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a; margin: 0; align-self: flex-start;">Histori Transaksi</h3>
+                        
+                        <!-- Order Filters -->
+                        <div class="d-flex align-center gap-4 flex-wrap w-100" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <!-- Search -->
+                            <div style="position: relative; flex: 1; min-width: 250px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input v-model="orderSearchQuery" type="text" placeholder="Cari ID Pesanan / Produk" style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            
+                            <!-- Date Filter -->
+                            <div style="position: relative; min-width: 150px;">
+                                <input v-model="orderDateFilter" type="date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569;">
+                            </div>
+                        </div>
+
+                        <!-- Status Pills -->
+                        <div class="d-flex align-center gap-2 flex-wrap w-100">
+                            <span style="font-size: 13px; font-weight: 700; color: #64748b; margin-right: 8px;">Status:</span>
+                            <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan']" :key="status">
+                                <button
+                                    @click="orderStatusFilter = status"
+                                    style="padding: 4px 12px; font-size: 12px; border-radius: 16px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
+                                    :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
+                                >
+                                    {{ status }}
+                                </button>
+                            </template>
+                            <span @click="resetOrderFilters" style="font-size: 12px; font-weight: 700; color: #16a34a; cursor: pointer; margin-left: auto;">Reset Filter</span>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
@@ -330,6 +434,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">ID Order</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Tanggal</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Metode Pengiriman</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Item Pesanan</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Nominal Tagihan</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Status</th>
                                     <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;" class="text-center">Bukti Pembayaran</th>
@@ -337,7 +442,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="order in orders" :key="order.id">
+                                <tr v-for="order in filteredOrders" :key="order.id">
                                     <!-- ID Order -->
                                     <td style="font-weight: 800; font-family: monospace; color: #0f172a;">
                                         {{ order.id }}
@@ -349,6 +454,14 @@ const handleDeleteAdmin = (adminUsername) => {
                                     <!-- Metode Pengiriman -->
                                     <td style="font-weight: 600; color: #0f172a;">
                                         {{ order.shippingMethod || 'JNE' }}
+                                    </td>
+
+                                    <!-- Item Pesanan -->
+                                    <td>
+                                        <div v-for="item in order.items" :key="item.productId" style="margin-bottom: 8px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                            <div style="font-size: 12px; font-weight: 700; color: #0f172a;">{{ item.name }} ({{ item.qty }}x)</div>
+                                            <div v-if="item.color" style="font-size: 11px; color: #64748b; margin-top: 2px;">Warna: <span style="font-weight: 600;">{{ item.color }}</span></div>
+                                        </div>
                                     </td>
 
                                     <!-- Nominal Tagihan -->
@@ -402,13 +515,23 @@ const handleDeleteAdmin = (adminUsername) => {
 
                                         <!-- Logistik dipindah ke admin -->
                                         <template v-else>
-                                            <span style="color: #94a3b8; font-size: 12px;">-</span>
+                                            <div class="d-flex align-center justify-center gap-2">
+                                                <button v-if="order.status?.toLowerCase() !== 'cancelled' && order.status?.toLowerCase() !== 'completed'"
+                                                    @click="updateOrderStatus(order.id, 'cancelled')"
+                                                    class="btn btn-outline"
+                                                    style="padding: 4px 10px; font-size:11px; color: #dc2626; border-color: #dc2626; border-radius: 4px;"
+                                                    title="Batalkan secara manual jika sudah dibatalkan di Biteship"
+                                                >
+                                                    Batalkan
+                                                </button>
+                                                <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
+                                            </div>
                                         </template>
                                     </td>
                                 </tr>
-                                <tr v-if="orders.length === 0">
-                                    <td colspan="7" class="text-center text-muted" style="padding: 40px 0;">
-                                        Belum ada rekap order masuk.
+                                <tr v-if="filteredOrders.length === 0">
+                                    <td colspan="8" class="text-center text-muted" style="padding: 40px 0;">
+                                        Belum ada rekap order yang sesuai.
                                     </td>
                                 </tr>
                             </tbody>

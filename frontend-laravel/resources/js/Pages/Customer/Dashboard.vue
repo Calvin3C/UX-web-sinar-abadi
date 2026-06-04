@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm, Link } from '@inertiajs/vue3';
+import { useForm, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { useAddresses } from '@/Composables/useAddresses';
 
@@ -156,9 +156,52 @@ const completedOrders = computed(() => {
     });
 });
 
+const orderSearchQuery = ref('');
+const orderDateFilter = ref('');
+const orderStatusFilter = ref('Semua');
+
 const displayedOrders = computed(() => {
-    return activeMenu.value === 'riwayat' ? completedOrders.value : activeOrders.value;
+    let ordersToFilter = activeMenu.value === 'riwayat' ? completedOrders.value : activeOrders.value;
+    
+    if (orderSearchQuery.value) {
+        const q = orderSearchQuery.value.toLowerCase();
+        ordersToFilter = ordersToFilter.filter(o => 
+            o.id.toLowerCase().includes(q) || 
+            (o.items && o.items.some(item => item.name.toLowerCase().includes(q)))
+        );
+    }
+    
+    if (orderDateFilter.value) {
+        ordersToFilter = ordersToFilter.filter(o => {
+            if (!o.createdAt) return false;
+            // Handle ISO date format YYYY-MM-DD
+            return o.createdAt.startsWith(orderDateFilter.value);
+        });
+    }
+
+    if (orderStatusFilter.value && orderStatusFilter.value !== 'Semua') {
+        ordersToFilter = ordersToFilter.filter(o => {
+            const s = o.status?.toLowerCase();
+            const filterMap = {
+                'Menunggu Konfirmasi': ['pending'],
+                'Diproses': ['success'],
+                'Dikirim': ['shipping'],
+                'Dibatalkan': ['cancelled'],
+                'Selesai': ['completed']
+            };
+            const expectedStatuses = filterMap[orderStatusFilter.value] || [];
+            return expectedStatuses.includes(s);
+        });
+    }
+    
+    return ordersToFilter;
 });
+
+const resetFilters = () => {
+    orderSearchQuery.value = '';
+    orderDateFilter.value = '';
+    orderStatusFilter.value = 'Semua';
+};
 
 const proofForm = useForm({
     proofUploaded: true,
@@ -193,7 +236,7 @@ const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
         case 'pending': return 'pending';
         case 'verified': return 'success';
-        case 'shipping': return 'info';
+        case 'shipping': return 'pending';
         case 'completed': return 'success';
         case 'cancelled': return 'cancelled';
         default: return 'pending';
@@ -202,9 +245,10 @@ const getStatusClass = (status) => {
 
 const getStatusLabel = (status) => {
     switch (status?.toLowerCase()) {
-        case 'pending': return 'Pending';
-        case 'success': return 'Success';
-        case 'shipping': return 'Dalam Pengiriman';
+        case 'pending': return 'Menunggu Konfirmasi';
+        case 'success': return 'Diproses';
+        case 'verified': return 'Diproses';
+        case 'shipping': return 'Dikirim';
         case 'completed': return 'Selesai';
         case 'cancelled': return 'Dibatalkan';
         default: return status;
@@ -354,9 +398,42 @@ const handleUploadProof = () => {
                     </div>
                 </div>
 
-                <div v-else-if="displayedOrders.length > 0">
-                    <div 
-                        v-for="order in displayedOrders" 
+                <div v-else-if="activeMenu === 'pesanan' || activeMenu === 'riwayat'">
+                    <!-- Filters Section -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 24px;">
+                        <div class="d-flex align-center gap-4 flex-wrap mb-4">
+                            <!-- Search -->
+                            <div style="position: relative; flex: 1; min-width: 250px;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input v-model="orderSearchQuery" type="text" placeholder="Cari pesanan atau produk" style="width: 100%; padding: 10px 12px 10px 40px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                            </div>
+                            
+                            <!-- Date Filter -->
+                            <div style="position: relative; min-width: 200px;">
+                                <input v-model="orderDateFilter" type="date" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #475569;">
+                            </div>
+                        </div>
+
+                        <!-- Status Pills -->
+                        <div class="d-flex align-center gap-2 flex-wrap">
+                            <span style="font-size: 14px; font-weight: 700; color: #0f172a; margin-right: 8px;">Status</span>
+                            <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan']" :key="status">
+                                <!-- Hanya tampilkan Selesai di menu Riwayat Selesai, dan sembunyikan yang lain jika di menu Riwayat -->
+                                <button v-if="activeMenu !== 'riwayat' || (activeMenu === 'riwayat' && (status === 'Semua' || status === 'Selesai' || status === 'Dibatalkan'))"
+                                    @click="orderStatusFilter = status"
+                                    style="padding: 6px 16px; font-size: 13px; border-radius: 20px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
+                                    :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
+                                >
+                                    {{ status }}
+                                </button>
+                            </template>
+                            <span @click="resetFilters" style="font-size: 13px; font-weight: 700; color: #16a34a; cursor: pointer; margin-left: auto;">Reset Filter</span>
+                        </div>
+                    </div>
+
+                    <div v-if="displayedOrders.length > 0">
+                        <div 
+                            v-for="order in displayedOrders" 
                         :key="order.id" 
                         class="order-card"
                     >
@@ -384,7 +461,10 @@ const handleUploadProof = () => {
                         <table class="order-items-table">
                             <tbody>
                                 <tr v-for="item in order.items" :key="item.productId">
-                                    <td style="font-weight: 600;">{{ item.name }}</td>
+                                    <td>
+                                        <div style="font-weight: 600;">{{ item.name }}</div>
+                                        <div v-if="item.color" style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Warna: <span style="font-weight: 500;">{{ item.color }}</span></div>
+                                    </td>
                                     <td class="text-right" style="color: var(--color-text-muted);">
                                         {{ item.qty }}x @ {{ formatPrice(item.price) }}
                                     </td>
@@ -487,6 +567,7 @@ const handleUploadProof = () => {
                     <p>{{ activeMenu === 'riwayat' ? 'Belum ada pesanan yang selesai.' : 'Anda belum melakukan pemesanan material apa pun.' }}</p>
                     <Link v-if="activeMenu !== 'riwayat'" href="/katalog" class="btn btn-primary mt-4">Pesan Sekarang</Link>
                 </div>
+                </div> <!-- End v-else-if (pesanan/riwayat) -->
                     </div> <!-- End Main Content -->
                 </div> <!-- End Grid Layout -->
             </div>

@@ -2,40 +2,30 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"log"
+	"sinar-abadi-backend/config"
+	"sinar-abadi-backend/models"
 
 	"github.com/joho/godotenv"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func main() {
-	godotenv.Load(".env")
-	dsn := "host=" + os.Getenv("DB_HOST") + " user=" + os.Getenv("DB_USER") + " password=" + os.Getenv("DB_PASS") + " dbname=" + os.Getenv("DB_NAME") + " port=" + os.Getenv("DB_PORT") + " sslmode=" + os.Getenv("DB_SSLMODE")
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		fmt.Println("Error connecting:", err)
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found")
+	}
+	config.ConnectDatabase()
+
+	var shipping models.Shipping
+	if err := config.DB.Where("order_id = ?", "ORD-260603-721").First(&shipping).Error; err != nil {
+		fmt.Println("Error:", err)
 		return
 	}
-	
-	var count int64
-	db.Table("stock_logs").Count(&count)
-	fmt.Println("Stock logs count:", count)
-	
-	var productCount int64
-	db.Table("products").Count(&productCount)
-	fmt.Println("Products count:", productCount)
-	
-	// Print a few stock_logs
-	type StockLog struct {
-		ID          uint
-		ProductID   string
-		ChangeType  string
-		QtyChanged  int
-	}
-	var logs []StockLog
-	db.Table("stock_logs").Limit(5).Find(&logs)
-	for _, l := range logs {
-		fmt.Printf("Log: %+v\n", l)
-	}
+
+	// Fix the order
+	result := config.DB.Model(&shipping).Updates(map[string]interface{}{
+		"biteship_order_id": "TEST-ORDER-ID-12345",
+		"waybill_id":        "TEST-WAYBILL-ID",
+	})
+	fmt.Println("Rows affected:", result.RowsAffected)
+	fmt.Println("Error:", result.Error)
 }

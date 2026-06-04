@@ -60,6 +60,18 @@ const timelineProgressWidth = () => {
     const percentage = (props.currentStep / (props.steps.length - 1)) * 100;
     return `${percentage}%`;
 };
+
+const handleCompleteOrder = (orderId) => {
+    if (confirm('Apakah Anda yakin pesanan sudah diterima dengan baik? Status pesanan akan diubah menjadi Selesai.')) {
+        router.put(`/customer/orders/${orderId}/complete`, {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Return to dashboard after completing
+                router.get('/customer/dashboard');
+            }
+        });
+    }
+};
 </script>
 
 <template>
@@ -98,31 +110,32 @@ const timelineProgressWidth = () => {
                     </div>
 
                     <!-- Timeline -->
-                    <div class="tracking-timeline">
-                        <div class="timeline-steps">
+                    <div class="tracking-timeline" style="overflow-x: auto; padding-bottom: 10px;">
+                        <div class="timeline-steps" :style="{ minWidth: steps.length > 4 ? '600px' : 'auto' }">
                             <!-- Progress Line -->
                             <div class="timeline-progress" :style="{ width: timelineProgressWidth() }"></div>
                             
                             <!-- Steps -->
                             <div 
                                 v-for="(step, index) in steps" 
-                                :key="step.title" 
+                                :key="index + '-' + step.title" 
                                 class="timeline-step"
-                                :class="{ completed: index < currentStep, active: index === currentStep }"
+                                :class="{ 
+                                    completed: index < currentStep || (index === currentStep && step.status === 'delivered'), 
+                                    active: index === currentStep && step.status !== 'delivered' 
+                                }"
                             >
                                 <div class="step-circle">
                                     <svg viewBox="0 0 24 24">
                                         <!-- Step 1: Created -->
                                         <path v-if="index === 0" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                                        <!-- Step 2: Payment Verified -->
-                                        <path v-else-if="index === 1" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                        <!-- Step 3: Shipping -->
-                                        <path v-else-if="index === 2" d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm2-5.5h-3V9h3v4z"/>
-                                        <!-- Step 4: Completed -->
-                                        <path v-else d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+                                        <!-- Step Last: Completed (Home Check) -->
+                                        <path v-else-if="index === steps.length - 1 && index > 1" d="M12 3L2 12h3v8h14v-8h3L12 3zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                                        <!-- Step Default (Checkmark) -->
+                                        <path v-else d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
                                     </svg>
                                 </div>
-                                <div class="step-label">{{ step.title }}</div>
+                                <div class="step-label" style="font-size:12px; line-height:1.2;">{{ step.title }}</div>
                                 <div style="font-size:10px; color: var(--color-text-muted); margin-top:4px;">
                                     {{ step.time }}
                                 </div>
@@ -141,9 +154,27 @@ const timelineProgressWidth = () => {
                             <div>
                                 <span class="tracking-item-name">{{ item.name }}</span>
                                 <span class="tracking-item-qty" style="margin-left: 8px;">({{ item.qty }} pcs)</span>
+                                <div v-if="item.color" style="font-size: 12px; color: #64748b; margin-top: 2px;">Warna: <span style="font-weight: 500;">{{ item.color }}</span></div>
                             </div>
                             <span class="tracking-item-price">{{ formatPrice(item.price * item.qty) }}</span>
                         </div>
+                    </div>
+
+                    <!-- Pesanan Diterima Action -->
+                    <div 
+                        v-if="order.status?.toUpperCase() !== 'COMPLETED' && steps[currentStep]?.status === 'delivered'"
+                        class="d-flex flex-column align-end mt-6 pt-4"
+                        style="border-top: 1px dashed #cbd5e1;"
+                    >
+                        <div style="font-size: 13px; color: #64748b; margin-bottom: 12px; text-align: right;">
+                            Tracking menunjukkan barang sudah terkirim.<br>Silakan konfirmasi jika Anda sudah menerima barang dengan baik.
+                        </div>
+                        <button 
+                            @click="handleCompleteOrder(order.id)"
+                            style="padding: 12px 32px; font-size: 15px; font-weight: 700; color: white; background: #16a34a; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.4);"
+                        >
+                            Pesanan Diterima
+                        </button>
                     </div>
                 </div>
 

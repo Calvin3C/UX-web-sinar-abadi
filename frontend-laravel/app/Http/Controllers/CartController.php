@@ -46,9 +46,13 @@ class CartController extends Controller
             'name'    => 'required|string',
             'price'   => 'required|numeric',
             'img'     => 'nullable|string',
-            'stock'   => 'nullable|numeric',
             'isLarge' => 'nullable',
+            'weight'  => 'nullable|numeric',
+            'length'  => 'nullable|numeric',
+            'width'   => 'nullable|numeric',
+            'height'  => 'nullable|numeric',
             'qty'     => 'nullable|numeric|min:1',
+            'color'   => 'nullable|string',
         ]);
 
         $cart = session('cart', []);
@@ -57,24 +61,32 @@ class CartController extends Controller
                 || $request->input('isLarge') === true;
         
         $requestedQty = (int) $request->input('qty', 1);
+        $color = $request->input('color');
+        $cartKey = $productId . ($color ? '_' . $color : '');
 
-        if (isset($cart[$productId])) {
+        if (isset($cart[$cartKey])) {
             // Check stock limit
-            $newQty = $cart[$productId]['qty'] + $requestedQty;
+            $newQty = $cart[$cartKey]['qty'] + $requestedQty;
             $stockLimit = (int) $request->input('stock', 999);
             if ($newQty > $stockLimit) {
                 return back()->with('error', 'Stok produk tidak mencukupi.');
             }
-            $cart[$productId]['qty'] = $newQty;
+            $cart[$cartKey]['qty'] = $newQty;
         } else {
-            $cart[$productId] = [
+            $cart[$cartKey] = [
+                'cartKey' => $cartKey,
                 'id'      => $productId,
                 'name'    => $request->input('name'),
                 'price'   => (int) $request->input('price'),
                 'img'     => $request->input('img', ''),
                 'isLarge' => $isLarge,
+                'weight'  => (int) $request->input('weight', 0),
+                'length'  => (int) $request->input('length', 1),
+                'width'   => (int) $request->input('width', 1),
+                'height'  => (int) $request->input('height', 1),
                 'stock'   => (int) $request->input('stock', 0),
                 'qty'     => $requestedQty,
+                'color'   => $color,
             ];
         }
 
@@ -228,6 +240,8 @@ class CartController extends Controller
             'proof' => 'required|file|image|max:4096',
             'biteship_area_id' => 'nullable|string',
             'shipping_cost' => 'nullable|numeric',
+            'courier_code' => 'nullable|string',
+            'courier_service_code' => 'nullable|string',
         ]);
 
         $proofPath = null;
@@ -253,6 +267,11 @@ class CartController extends Controller
                 'name'      => $item['name'],
                 'qty'       => $item['qty'],
                 'price'     => $item['price'],
+                'weight'    => $item['weight'] ?? 0,
+                'length'    => $item['length'] ?? 1,
+                'width'     => $item['width'] ?? 1,
+                'height'    => $item['height'] ?? 1,
+                'color'     => $item['color'] ?? '',
             ];
         }
 
@@ -261,14 +280,16 @@ class CartController extends Controller
         $totalProduct = $subtotal + $tax;
 
         $result = $this->api->createOrder(session('auth_token'), [
-            'phone'          => $logistic['phone'],
-            'address'        => $logistic['address'],
-            'shippingMethod' => $logistic['courier'],
-            'paymentMethod'  => 'Transfer Bank ' . $request->input('bank'),
-            'biteshipAreaId' => $request->input('biteship_area_id', ''),
-            'shippingCost'   => (int) $request->input('shipping_cost', 0),
-            'items'          => $items,
-            'total'          => $totalProduct,
+            'phone'              => $logistic['phone'],
+            'address'            => $logistic['address'],
+            'shippingMethod'     => $logistic['courier'],
+            'paymentMethod'      => 'Transfer Bank ' . $request->input('bank'),
+            'biteshipAreaId'     => $request->input('biteship_area_id', ''),
+            'shippingCost'       => (int) $request->input('shipping_cost', 0),
+            'courierCode'        => $request->input('courier_code', ''),
+            'courierServiceCode' => $request->input('courier_service_code', ''),
+            'items'              => $items,
+            'total'              => $totalProduct,
         ]);
 
         if (!$result['success']) {

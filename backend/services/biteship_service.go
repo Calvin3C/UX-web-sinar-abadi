@@ -114,19 +114,25 @@ func GetRates(originAreaID, destinationAreaID string, couriers string, items []m
 			"pricing": []map[string]interface{}{
 				{
 					"courier_name":         "JNE",
+					"courier_code":         "jne",
 					"courier_service_name": "REG",
+					"courier_service_code": "reg",
 					"duration":             "2 - 3 Hari",
 					"price":                15000,
 				},
 				{
 					"courier_name":         "SiCepat",
+					"courier_code":         "sicepat",
 					"courier_service_name": "HALU",
+					"courier_service_code": "halu",
 					"duration":             "2 - 4 Hari",
 					"price":                12000,
 				},
 				{
 					"courier_name":         "J&T",
+					"courier_code":         "jnt",
 					"courier_service_name": "EZ",
+					"courier_service_code": "ez",
 					"duration":             "1 - 2 Hari",
 					"price":                18000,
 				},
@@ -144,7 +150,7 @@ func GetRates(originAreaID, destinationAreaID string, couriers string, items []m
 }
 
 // CreateOrder sends an order to Biteship to request a pickup
-func CreateOrder(orderID string, originAreaID string, destinationAreaID string, courierCompany string, courierType string, items []map[string]interface{}) (map[string]interface{}, error) {
+func CreateOrder(orderID string, originAreaID string, destinationAreaID string, courierCompany string, courierType string, items []map[string]interface{}, customerName string, customerPhone string, destinationAddress string) (map[string]interface{}, error) {
 	apiKey := os.Getenv("BITESHIP_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("BITESHIP_API_KEY is not set")
@@ -159,11 +165,11 @@ func CreateOrder(orderID string, originAreaID string, destinationAreaID string, 
 		"shipper_organization":  "Sinar Abadi",
 		"origin_contact_name":   "Sinar Abadi Pusat",
 		"origin_contact_phone":  "08123456789",
-		"origin_address":        "Jalan Utara Masjid No.9, Dampit Wetan, Dampit, Kec. Dampit, Kabupaten Malang, Jawa Timur 65181",
-		"origin_area_id":        originAreaID,
-		"destination_contact_name":  "Pelanggan Sinar Abadi",
-		"destination_contact_phone": "082331339737",
-		"destination_address":       "Alamat Pengiriman",
+		"origin_address":            "Jalan Utara Masjid No.9, Dampit Wetan, Dampit, Kec. Dampit, Kabupaten Malang, Jawa Timur 65181",
+		"origin_area_id":            originAreaID,
+		"destination_contact_name":  customerName,
+		"destination_contact_phone": customerPhone,
+		"destination_address":       destinationAddress,
 		"destination_area_id":       destinationAreaID,
 		"courier_company":           courierCompany,
 		"courier_type":              courierType,
@@ -225,3 +231,65 @@ func CreateOrder(orderID string, originAreaID string, destinationAreaID string, 
 	return result, nil
 }
 
+// TrackOrder calls Biteship API to get the latest tracking information for a specific order.
+func TrackOrder(biteshipOrderID string) (map[string]interface{}, error) {
+	apiKey := os.Getenv("BITESHIP_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("BITESHIP_API_KEY is not set")
+	}
+
+	// For tracking, we can just GET the order details, which includes the tracking history
+	reqURL := fmt.Sprintf("%s/orders/%s", BiteshipBaseURL, biteshipOrderID)
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", apiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// Mock Data Fallback for Development
+		if strings.HasPrefix(biteshipOrderID, "TEST-ORDER-ID-") {
+			return map[string]interface{}{
+				"success": true,
+				"status":  "shipping",
+				"courier": map[string]interface{}{
+					"waybill_id": "TEST-WAYBILL-ID",
+					"history": []map[string]interface{}{
+						{
+							"status":     "placed",
+							"note":       "Pesanan telah dibuat",
+							"updated_at": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+						},
+						{
+							"status":     "dropped",
+							"note":       "Paket diserahkan ke kurir",
+							"updated_at": time.Now().Add(-12 * time.Hour).Format(time.RFC3339),
+						},
+						{
+							"status":     "shipping",
+							"note":       "Paket sedang dalam perjalanan ke alamat tujuan",
+							"updated_at": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+						},
+					},
+				},
+			}, nil
+		}
+		return nil, fmt.Errorf("Biteship API returned status: %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}

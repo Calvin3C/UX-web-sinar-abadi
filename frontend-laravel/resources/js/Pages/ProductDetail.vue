@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { avianColors, avitexColors, emcoColors, aquaproofColors, decolithColors, noDropColors } from '@/data/paintColors';
 
 const props = defineProps({
     product: {
@@ -14,8 +15,56 @@ const page = usePage();
 const auth = computed(() => page.props.auth);
 
 const isSemen = props.product.category === 'Semen';
-const minPurchase = isSemen ? 10 : 1;
-const unit = isSemen ? 'Sak' : 'Pcs';
+const isCat = props.product.category.toLowerCase().includes('cat');
+const isBesi = props.product.category.toLowerCase().includes('besi') || props.product.name.toLowerCase().includes('besi beton');
+const isKloset = props.product.category.toLowerCase().includes('kloset') || props.product.name.toLowerCase().includes('kloset');
+const isKeramikGranite = props.product.category.toLowerCase().includes('keramik') || props.product.name.toLowerCase().includes('keramik') || props.product.category.toLowerCase().includes('granit') || props.product.name.toLowerCase().includes('granit');
+const isPipa = props.product.category.toLowerCase().includes('pipa') || props.product.name.toLowerCase().includes('pipa');
+const isBuahGroup = ['engsel', 'kuas', 'kunci pintu', 'lampu'].some(kw => props.product.category.toLowerCase().includes(kw) || props.product.name.toLowerCase().includes(kw));
+const isPerkakas = props.product.category.toLowerCase().includes('perkakas');
+
+let weightKg = 0;
+const weightMatch = props.product.name.match(/(\d+(?:\.\d+)?)\s*kg/i);
+if (weightMatch) {
+    weightKg = parseFloat(weightMatch[1]);
+}
+
+let minPurchase = props.product.minPurchase || 1;
+let unit = props.product.unit || '';
+
+if (!props.product.unit) {
+    unit = 'Pcs';
+    if (isSemen) {
+        minPurchase = 10;
+        unit = 'Sak';
+    } else if (isCat) {
+        if (weightKg >= 1 && weightKg <= 5) {
+            minPurchase = 1;
+            unit = 'Galon';
+        } else if (weightKg >= 20 && weightKg <= 25) {
+            minPurchase = 1;
+            unit = 'Pail';
+        }
+    } else if (isBesi) {
+        minPurchase = 1;
+        unit = 'Batang';
+    } else if (isKloset) {
+        minPurchase = 1;
+        unit = 'Buah';
+    } else if (isKeramikGranite) {
+        minPurchase = 1;
+        unit = 'Dus';
+    } else if (isPipa) {
+        minPurchase = 1;
+        unit = 'Batang';
+    } else if (isBuahGroup) {
+        minPurchase = 1;
+        unit = 'Buah';
+    } else if (isPerkakas) {
+        minPurchase = 1;
+        unit = 'Unit';
+    }
+}
 
 const quantity = ref(minPurchase);
 
@@ -52,8 +101,13 @@ const handleAddToCart = () => {
         price: props.product.price,
         img: props.product.img || '',
         isLarge: props.product.isLarge || false,
+        weight: props.product.weight || 0,
+        length: props.product.length || 1,
+        width: props.product.width || 1,
+        height: props.product.height || 1,
         stock: props.product.stock,
         qty: quantity.value,
+        color: selectedColor.value,
     }, {
         preserveScroll: true
     });
@@ -74,10 +128,21 @@ const sharePage = () => {
 const activeTab = ref('spesifikasi');
 
 const getMerek = () => {
+    if (props.product.brand) return props.product.brand;
     return props.product.name.split(' ')[0];
 };
 
 const getWeight = () => {
+    if (props.product.weight > 0) {
+        const kg = props.product.weight / 1000;
+        const gramStr = new Intl.NumberFormat('id-ID').format(props.product.weight);
+        const kgStr = new Intl.NumberFormat('id-ID', {maximumFractionDigits: 2}).format(kg);
+        return `${gramStr} Gram / ${kgStr} Kg`;
+    }
+    if (weightKg > 0) {
+        const gramStr = new Intl.NumberFormat('id-ID').format(weightKg * 1000);
+        return `${gramStr} Gram / ${weightKg} Kg`;
+    }
     return props.product.isLarge ? '15.000 Gram / 15 Kg' : '2.000 Gram / 2 Kg';
 };
 
@@ -85,6 +150,85 @@ const getWaLink = () => {
     const text = `Halo CS Sinar Abadi, saya mau bertanya tentang produk ${props.product.name}`;
     return `https://wa.me/6281234567890?text=${encodeURIComponent(text)}`;
 };
+
+const currentColors = computed(() => {
+    const name = props.product.name.toLowerCase();
+    if (name.includes('avian')) return avianColors;
+    if (name.includes('avitex')) return avitexColors;
+    if (name.includes('emco')) return emcoColors;
+    if (name.includes('aquaproof')) return aquaproofColors;
+    if (name.includes('decolith')) return decolithColors;
+    if (name.includes('no drop')) return noDropColors;
+    return [];
+});
+
+const getColorCategory = (colorName) => {
+    const c = colorName.toLowerCase();
+    // Merah/Pink
+    if (c.includes('red') || c.includes('merah') || c.includes('pink') || c.includes('peach')
+        || c.includes('salmon') || c.includes('ballerina') || c.includes('blush') || c.includes('barbecue')
+        || c.includes('cherry') || c.includes('passion') || c.includes('fiesta') || c.includes('orchid')
+        || c.includes('terakota') || c.includes('terrakota') || c.includes('delima') || c.includes('markisa')
+        || c.includes('balado') || c.includes('dendeng') || c.includes('rendang') || c.includes('sambal')
+        || c.includes('brinjal') || c.includes('oxide') || c.includes('star') || c.includes('maroon')
+        || c.includes('vermillion') || c.includes('sunrise') || c.includes('chile')) return 'Merah/Pink';
+    // Biru
+    if (c.includes('blue') || c.includes('cyan') || c.includes('teal') || c.includes('navy')
+        || c.includes('biru') || c.includes('mediterranean') || c.includes('malibu')
+        || c.includes('bubble gum') || c.includes('tumpeng')) return 'Biru';
+    // Hijau
+    if (c.includes('green') || c.includes('mint') || c.includes('olive')
+        || c.includes('hijau') || c.includes('wasabi') || c.includes('lumut')
+        || c.includes('lontong') || c.includes('sambel ijo') || c.includes('jungle')
+        || c.includes('emerald') || c.includes('pandan') || c.includes('laurel')
+        || c.includes('madagascar') || c.includes('peace')) return 'Hijau';
+    // Kuning/Krem
+    if (c.includes('yellow') || c.includes('cream') || c.includes('beige') || c.includes('ivory')
+        || c.includes('kuning') || c.includes('lemon') || c.includes('golden')
+        || c.includes('nugget') || c.includes('ocker') || c.includes('buttermilk')
+        || c.includes('gulai') || c.includes('kentang') || c.includes('opor')
+        || c.includes('sunny') || c.includes('banana') || c.includes('champagne')
+        || c.includes('sun flower') || c.includes('sunshine')) return 'Kuning/Krem';
+    // Oranye
+    if (c.includes('orange') || c.includes('sunkist') || c.includes('pumpkin')
+        || c.includes('carrot') || c.includes('flame') || c.includes('tangerine')
+        || c.includes('apricot') || c.includes('sunset') || c.includes('fiesta')) return 'Oranye';
+    // Cokelat
+    if (c.includes('brown') || c.includes('coklat') || c.includes('mocca')
+        || c.includes('mocha') || c.includes('sahara') || c.includes('cendana')
+        || c.includes('borobudur') || c.includes('monas') || c.includes('buckskin')
+        || c.includes('safari') || c.includes('suede') || c.includes('leather')
+        || c.includes('saddle') || c.includes('cinnamon') || c.includes('mahogany')
+        || c.includes('caramel') || c.includes('honey') || c.includes('copra')
+        || c.includes('semur') || c.includes('tongkol') || c.includes('teri')
+        || c.includes('santan') || c.includes('pepes')) return 'Cokelat';
+    // Monokrom
+    if (c.includes('grey') || c.includes('putih') || c.includes('hitam') || c.includes('silver')
+        || c.includes('black') || c.includes('white') || c.includes('abu')
+        || c.includes('cement') || c.includes('platinum') || c.includes('rawon')
+        || c.includes('transparan') || c.includes('smoke') || c.includes('grafit')
+        || c.includes('midnight') || c.includes('dover') || c.includes('dove')) return 'Monokrom';
+    // Ungu
+    if (c.includes('purple') || c.includes('lilac') || c.includes('violet')
+        || c.includes('violetta') || c.includes('grape') || c.includes('powder violet')) return 'Ungu';
+    return 'Lainnya';
+};
+
+const colorCategories = computed(() => {
+    if (currentColors.value.length === 0) return [];
+    const categories = new Set();
+    currentColors.value.forEach(c => categories.add(getColorCategory(c)));
+    return ['Semua', ...Array.from(categories)].sort();
+});
+
+const selectedColorCategory = ref('Semua');
+
+const filteredColors = computed(() => {
+    if (selectedColorCategory.value === 'Semua') return currentColors.value;
+    return currentColors.value.filter(c => getColorCategory(c) === selectedColorCategory.value);
+});
+
+const selectedColor = ref(currentColors.value.length > 0 ? currentColors.value[0] : null);
 </script>
 
 <template>
@@ -124,6 +268,53 @@ const getWaLink = () => {
                         </span>
                     </div>
 
+                    <!-- Pilihan Warna -->
+                    <div v-if="currentColors.length > 0" class="color-selection" style="margin-bottom: 24px;">
+                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 12px; font-size: 14px;">Kategori Warna:</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                            <button
+                                v-for="cat in colorCategories"
+                                :key="cat"
+                                @click="selectedColorCategory = cat"
+                                :style="{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    borderRadius: '20px',
+                                    border: selectedColorCategory === cat ? '1px solid #e11d48' : '1px solid #cbd5e1',
+                                    background: selectedColorCategory === cat ? '#e11d48' : '#f8fafc',
+                                    color: selectedColorCategory === cat ? 'white' : '#475569',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                }"
+                            >
+                                {{ cat }}
+                            </button>
+                        </div>
+
+                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 12px; font-size: 15px;">Warna: <span style="font-weight: 500; color: #334155;">{{ selectedColor }}</span></div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <button 
+                                v-for="color in filteredColors" 
+                                :key="color"
+                                @click="selectedColor = color"
+                                :style="{
+                                    padding: '8px 12px',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    borderRadius: '6px',
+                                    border: selectedColor === color ? '2px solid #0f766e' : '1px solid #cbd5e1',
+                                    background: selectedColor === color ? '#f0fdfa' : 'white',
+                                    color: selectedColor === color ? '#0f766e' : '#475569',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                }"
+                            >
+                                {{ color }}
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="tabs">
                         <div class="tab" :class="{ active: activeTab === 'spesifikasi' }" @click="activeTab = 'spesifikasi'">Spesifikasi Produk</div>
                         <div class="tab" :class="{ active: activeTab === 'deskripsi' }" @click="activeTab = 'deskripsi'">Deskripsi Produk</div>
@@ -141,6 +332,10 @@ const getWaLink = () => {
                         <div class="spec-row">
                             <div class="spec-label">Berat</div>
                             <div class="spec-value">{{ getWeight() }}</div>
+                        </div>
+                        <div class="spec-row" v-if="product.length && product.length > 1">
+                            <div class="spec-label">Dimensi (P×L×T)</div>
+                            <div class="spec-value">{{ product.length }} × {{ product.width }} × {{ product.height }} cm</div>
                         </div>
                         <div class="spec-row">
                             <div class="spec-label">Merek</div>

@@ -32,4 +32,9 @@ type OrderItem struct {
 	Name      string `gorm:"size:300;not null" json:"name"` // snapshot of product name at purchase time
 	Qty       int    `gorm:"not null" json:"qty"`
 	Price     int64  `gorm:"not null" json:"price"` // price per unit at time of purchase
+	Weight    int    `gorm:"default:0" json:"weight"` // weight per unit in grams
+	Length    int    `gorm:"default:1" json:"length"` // length in cm
+	Width     int    `gorm:"default:1" json:"width"`  // width in cm
+	Height    int    `gorm:"default:1" json:"height"` // height in cm
+	Color     string `gorm:"size:100" json:"color"`
 }

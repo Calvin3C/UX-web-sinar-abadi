@@ -42,13 +42,14 @@ class ApiService
     }
 
     /**
-     * Register a new customer account.
+     * Register a new account.
      */
-    public function register(string $username, string $password, string $name, string $phone, string $email, string $gender): array
+    public function register(string $username, string $password, string $role, string $name = '', string $phone = '', string $email = '', string $gender = ''): array
     {
         $response = Http::timeout(10)->post("{$this->baseUrl}/register", [
             'username' => $username,
             'password' => $password,
+            'role'     => $role,
             'name'     => $name,
             'phone'    => $phone,
             'email'    => $email,
@@ -206,6 +207,21 @@ class ApiService
     }
 
     /**
+     * Complete order (customer).
+     */
+    public function completeOrder(string $token, string $orderId): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/orders/{$orderId}/complete");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
      * Mengubah status pesanan menjadi proof_uploaded = true dan menyimpan URL
      */
     public function uploadProof(string $token, string $orderId, string $proofUrl = null): array
@@ -216,6 +232,21 @@ class ApiService
                 'proofUploaded' => true,
                 'proofUrl'      => $proofUrl,
             ]);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
+     * Get live tracking for an order
+     */
+    public function getTracking(string $token, string $orderId): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/biteship/tracking/{$orderId}");
 
         return [
             'success' => $response->successful(),

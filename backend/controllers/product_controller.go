@@ -12,13 +12,20 @@ import (
 
 // CreateProductInput represents the request body for creating a new product.
 type CreateProductInput struct {
-	ID       string `json:"id" binding:"required"`
-	Category string `json:"category" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Price    int64  `json:"price" binding:"required"`
-	Stock    int    `json:"stock"` // initial stock, recorded in stock_logs
-	IsLarge  bool   `json:"isLarge"`
-	ImageURL string `json:"img"`
+	ID          string `json:"id" binding:"required"`
+	Category    string `json:"category" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Brand       string `json:"brand"`
+	Weight      int    `json:"weight"`
+	Length      int    `json:"length"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Unit        string `json:"unit"`
+	MinPurchase int    `json:"minPurchase"`
+	Price       int64  `json:"price" binding:"required"`
+	Stock       int    `json:"stock"` // initial stock, recorded in stock_logs
+	IsLarge     bool   `json:"isLarge"`
+	ImageURL    string `json:"img"`
 }
 
 // StockUpdateInput represents the request body for stock adjustment.
@@ -28,11 +35,18 @@ type StockUpdateInput struct {
 
 // UpdateProductInput represents the request body for updating an existing product.
 type UpdateProductInput struct {
-	Category string `json:"category"`
-	Name     string `json:"name"`
-	Price    int64  `json:"price"`
-	IsLarge  bool   `json:"isLarge"`
-	ImageURL string `json:"img"`
+	Category    string `json:"category"`
+	Name        string `json:"name"`
+	Brand       string `json:"brand"`
+	Weight      int    `json:"weight"`
+	Length      int    `json:"length"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Unit        string `json:"unit"`
+	MinPurchase int    `json:"minPurchase"`
+	Price       int64  `json:"price"`
+	IsLarge     bool   `json:"isLarge"`
+	ImageURL    string `json:"img"`
 }
 
 // getStockByProductID calculates the current stock for a product
@@ -49,16 +63,23 @@ func getStockByProductID(productID string) int {
 // toProductResponse converts a Product model to a ProductResponse with computed stock.
 func toProductResponse(product models.Product) models.ProductResponse {
 	return models.ProductResponse{
-		ID:        product.ID,
-		Category:  product.Category,
-		Name:      product.Name,
-		Price:     product.Price,
-		Stock:     getStockByProductID(product.ID),
-		Sold:      product.Sold,
-		IsLarge:   product.IsLarge,
-		ImageURL:  product.ImageURL,
-		CreatedAt: product.CreatedAt,
-		UpdatedAt: product.UpdatedAt,
+		ID:          product.ID,
+		Category:    product.Category,
+		Name:        product.Name,
+		Brand:       product.Brand,
+		Weight:      product.Weight,
+		Length:      product.Length,
+		Width:       product.Width,
+		Height:      product.Height,
+		Unit:        product.Unit,
+		MinPurchase: product.MinPurchase,
+		Price:       product.Price,
+		Stock:       getStockByProductID(product.ID),
+		Sold:        product.Sold,
+		IsLarge:     product.IsLarge,
+		ImageURL:    product.ImageURL,
+		CreatedAt:   product.CreatedAt,
+		UpdatedAt:   product.UpdatedAt,
 	}
 }
 
@@ -122,14 +143,28 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	l := input.Length
+	w := input.Width
+	h := input.Height
+	if l <= 0 { l = 1 }
+	if w <= 0 { w = 1 }
+	if h <= 0 { h = 1 }
+
 	product := models.Product{
-		ID:       input.ID,
-		Category: input.Category,
-		Name:     input.Name,
-		Price:    input.Price,
-		Sold:     0,
-		IsLarge:  input.IsLarge,
-		ImageURL: input.ImageURL,
+		ID:          input.ID,
+		Category:    input.Category,
+		Name:        input.Name,
+		Brand:       input.Brand,
+		Weight:      input.Weight,
+		Length:      l,
+		Width:       w,
+		Height:      h,
+		Unit:        input.Unit,
+		MinPurchase: input.MinPurchase,
+		Price:       input.Price,
+		Sold:        0,
+		IsLarge:     input.IsLarge,
+		ImageURL:    input.ImageURL,
 	}
 
 	if result := config.DB.Create(&product); result.Error != nil {
@@ -244,6 +279,27 @@ func UpdateProduct(c *gin.Context) {
 	}
 	if input.Price > 0 {
 		updates["price"] = input.Price
+	}
+	if input.Brand != "" {
+		updates["brand"] = input.Brand
+	}
+	if input.Weight > 0 {
+		updates["weight"] = input.Weight
+	}
+	if input.Length > 0 {
+		updates["length"] = input.Length
+	}
+	if input.Width > 0 {
+		updates["width"] = input.Width
+	}
+	if input.Height > 0 {
+		updates["height"] = input.Height
+	}
+	if input.Unit != "" {
+		updates["unit"] = input.Unit
+	}
+	if input.MinPurchase > 0 {
+		updates["min_purchase"] = input.MinPurchase
 	}
 	updates["is_large"] = input.IsLarge
 	if input.ImageURL != "" {

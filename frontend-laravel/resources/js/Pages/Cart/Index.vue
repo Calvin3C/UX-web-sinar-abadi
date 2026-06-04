@@ -64,7 +64,7 @@ const removeItem = (id) => {
                             <h3 class="mb-4" style="font-size:18px;">Daftar Material</h3>
                             <div 
                                 v-for="item in cartItems" 
-                                :key="item.id" 
+                                :key="item.cartKey || item.id" 
                                 class="cart-item"
                             >
                                 <img 
@@ -76,20 +76,21 @@ const removeItem = (id) => {
                                     <div class="d-flex justify-between align-start">
                                         <h4 class="cart-item-title">{{ item.name }}</h4>
                                         <button 
-                                            @click="removeItem(item.id)" 
+                                            @click="removeItem(item.cartKey || item.id)" 
                                             class="btn-ghost" 
                                             style="padding: 4px; color: var(--color-danger); cursor: pointer;"
                                         >
                                             Hapus
                                         </button>
                                     </div>
+                                    <div v-if="item.color" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">Warna: <span style="font-weight: 500;">{{ item.color }}</span></div>
                                     <span v-if="item.isLarge" class="cart-item-size">Barang Besar</span>
                                     <div class="cart-item-price">{{ formatPrice(item.price) }}</div>
                                     <div class="d-flex justify-between align-center mt-2">
                                         <div class="qty-controls">
-                                            <button @click="updateQty(item.id, item.qty - 1)" class="qty-btn">-</button>
+                                            <button @click="updateQty(item.cartKey || item.id, item.qty - 1)" class="qty-btn">-</button>
                                             <input type="text" :value="item.qty" class="qty-input" readonly>
-                                            <button @click="updateQty(item.id, item.qty + 1)" class="qty-btn">+</button>
+                                            <button @click="updateQty(item.cartKey || item.id, item.qty + 1)" class="qty-btn">+</button>
                                         </div>
                                         <div style="font-weight: 800; color: var(--color-text-main);">
                                             Total: {{ formatPrice(item.price * item.qty) }}

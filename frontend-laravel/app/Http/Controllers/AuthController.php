@@ -64,26 +64,35 @@ class AuthController extends Controller
     }
 
     /**
-     * Proses registrasi customer baru.
+     * Proses registrasi akun baru (Customer/Admin/Owner).
      */
     public function register(Request $request)
     {
-        $request->validate([
+        $role = $request->input('role', 'customer');
+        
+        $rules = [
             'username' => 'required|string|min:3',
             'password' => 'required|string|min:3',
-            'name'     => 'required|string|min:2',
-            'phone'    => 'required|string|max:50',
-            'email'    => 'required|email|max:200',
-            'gender'   => 'required|string|in:Laki-laki,Perempuan',
-        ]);
+            'role'     => 'required|in:customer,admin,owner',
+        ];
+
+        if ($role === 'customer') {
+            $rules['name']   = 'required|string|min:2';
+            $rules['phone']  = 'required|string|max:50';
+            $rules['email']  = 'required|email|max:200';
+            $rules['gender'] = 'required|string|in:Laki-laki,Perempuan';
+        }
+
+        $request->validate($rules);
 
         $result = $this->api->register(
             $request->input('username'),
             $request->input('password'),
-            $request->input('name'),
-            $request->input('phone'),
-            $request->input('email'),
-            $request->input('gender')
+            $role,
+            $request->input('name', ''),
+            $request->input('phone', ''),
+            $request->input('email', ''),
+            $request->input('gender', '')
         );
 
         if (!$result['success']) {

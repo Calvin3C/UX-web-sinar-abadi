@@ -13,6 +13,7 @@ const loginForm = useForm({
 });
 
 const registerForm = useForm({
+    role: 'customer',
     name: '',
     username: '',
     password: '',
@@ -20,6 +21,13 @@ const registerForm = useForm({
     email: '',
     gender: 'Laki-laki',
 });
+
+const activeRegisterRole = ref('customer');
+
+const switchRegisterRole = (role) => {
+    activeRegisterRole.value = role;
+    registerForm.role = role;
+};
 
 const switchRole = (role) => {
     activeRole.value = role;
@@ -134,9 +142,34 @@ const handleRegister = () => {
 
                         <!-- Register Section -->
                         <div v-else id="register-section">
+                            <div class="role-tabs" id="auth-role-selector">
+                                <div 
+                                    class="role-tab" 
+                                    :class="{ active: activeRegisterRole === 'customer' }" 
+                                    @click="switchRegisterRole('customer')"
+                                >
+                                    Customer
+                                </div>
+                                <div 
+                                    class="role-tab" 
+                                    :class="{ active: activeRegisterRole === 'admin' }" 
+                                    @click="switchRegisterRole('admin')"
+                                >
+                                    Admin
+                                </div>
+                                <div 
+                                    class="role-tab" 
+                                    :class="{ active: activeRegisterRole === 'owner' }" 
+                                    @click="switchRegisterRole('owner')"
+                                >
+                                    Owner
+                                </div>
+                            </div>
+
                             <form @submit.prevent="handleRegister">
-                                <div class="form-group">
-                                    <label class="form-label">Nama Lengkap</label>
+                                <template v-if="activeRegisterRole === 'customer'">
+                                    <div class="form-group">
+                                        <label class="form-label">Nama Lengkap</label>
                                     <input 
                                         type="text" 
                                         class="form-input" 
@@ -187,10 +220,11 @@ const handleRegister = () => {
                                         <option value="Laki-laki">Laki-laki</option>
                                         <option value="Perempuan">Perempuan</option>
                                     </select>
-                                    <div v-if="registerForm.errors.gender" class="text-danger mt-2" style="font-size: 13px;">
-                                        {{ registerForm.errors.gender }}
+                                        <div v-if="registerForm.errors.gender" class="text-danger mt-2" style="font-size: 13px;">
+                                            {{ registerForm.errors.gender }}
+                                        </div>
                                     </div>
-                                </div>
+                                </template>
 
                                 <div class="form-group">
                                     <label class="form-label">Username</label>

@@ -73,24 +73,50 @@ class CustomerController extends Controller
             if ($result['success']) {
                 $order = $result['data'];
 
-                // Build timeline steps
-                $steps = [
-                    ['title' => 'Pesanan Dibuat', 'time' => $order['createdAt'] ?? ''],
-                    ['title' => 'Pembayaran Terverifikasi', 'time' => ''],
-                    ['title' => 'Dalam Pengiriman', 'time' => ''],
-                    ['title' => 'Pesanan Selesai', 'time' => ''],
-                ];
+                // Check if this order uses Biteship Tracking
+                $trackingResult = $this->api->getTracking($token, $orderId);
 
-                // Determine current step based on order status
-                $status = strtolower($order['status'] ?? '');
-                $currentStep = match ($status) {
-                    'pending' => 0,
-                    'success' => 1,
-                    'verified' => 1,
-                    'shipping' => 2,
-                    'completed' => 3,
-                    default => 0,
-                };
+                if ($trackingResult['success'] && isset($trackingResult['data']['courier']['history'])) {
+                    // It's a Biteship tracked order, map the history to steps
+                    $history = $trackingResult['data']['courier']['history'];
+                    $steps = [];
+                    foreach ($history as $h) {
+                        $dateStr = $h['updated_at'] ?? '';
+                        try {
+                            $dateObj = new \DateTime($dateStr);
+                            $dateObj->setTimezone(new \DateTimeZone('Asia/Jakarta'));
+                            $formattedTime = $dateObj->format('d M Y, H:i');
+                        } catch (\Exception $e) {
+                            $formattedTime = $dateStr;
+                        }
+
+                        $steps[] = [
+                            'title' => $h['note'] ?? $h['status'],
+                            'time'  => $formattedTime,
+                            'status'=> $h['status']
+                        ];
+                    }
+                    $currentStep = count($steps) - 1; // Always the last step in history is the current step
+                } else {
+                    // Fallback to static timeline for non-Biteship orders (e.g. Ambil Di Toko, Kurir Toko)
+                    $steps = [
+                        ['title' => 'Pesanan Dibuat', 'time' => $order['createdAt'] ?? ''],
+                        ['title' => 'Pembayaran Terverifikasi', 'time' => ''],
+                        ['title' => 'Dalam Pengiriman', 'time' => ''],
+                        ['title' => 'Pesanan Selesai', 'time' => ''],
+                    ];
+
+                    // Determine current step based on order status
+                    $status = strtolower($order['status'] ?? '');
+                    $currentStep = match ($status) {
+                        'pending' => 0,
+                        'success' => 1,
+                        'verified' => 1,
+                        'shipping' => 2,
+                        'completed' => 3,
+                        default => 0,
+                    };
+                }
             }
         }
 
@@ -100,5 +126,16 @@ class CustomerController extends Controller
             'steps' => $steps,
             'currentStep' => $currentStep,
         ]);
+    }
+    public function completeOrder(Request $request, string $orderId)
+    {
+        $token = session('auth_token');
+        $result = $this->api->completeOrder($token, $orderId);
+
+        if (!$result['success']) {
+            return back()->with('error', 'Gagal menyelesaikan pesanan.');
+        }
+
+        return back()->with('success', 'Pesanan berhasil diselesaikan. Terima kasih!');
     }
 }

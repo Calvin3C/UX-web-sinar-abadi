@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     orders: {
@@ -27,6 +27,52 @@ const activeTab = ref('orders'); // 'orders' or 'customers'
 const isShippingModalOpen = ref(false);
 const selectedOrderId = ref('');
 const shippingCode = ref('');
+
+const orderSearchQuery = ref('');
+const orderDateFilter = ref('');
+const orderStatusFilter = ref('Semua');
+
+const filteredOrders = computed(() => {
+    let ordersToFilter = props.orders || [];
+    
+    if (orderSearchQuery.value) {
+        const q = orderSearchQuery.value.toLowerCase();
+        ordersToFilter = ordersToFilter.filter(o => 
+            o.id.toLowerCase().includes(q) || 
+            (o.items && o.items.some(item => item.name.toLowerCase().includes(q)))
+        );
+    }
+    
+    if (orderDateFilter.value) {
+        ordersToFilter = ordersToFilter.filter(o => {
+            if (!o.createdAt) return false;
+            return o.createdAt.startsWith(orderDateFilter.value);
+        });
+    }
+
+    if (orderStatusFilter.value && orderStatusFilter.value !== 'Semua') {
+        ordersToFilter = ordersToFilter.filter(o => {
+            const s = o.status?.toLowerCase();
+            const filterMap = {
+                'Menunggu Konfirmasi': ['pending'],
+                'Diproses': ['success'],
+                'Dikirim': ['shipping'],
+                'Dibatalkan': ['cancelled'],
+                'Selesai': ['completed']
+            };
+            const expectedStatuses = filterMap[orderStatusFilter.value] || [];
+            return expectedStatuses.includes(s);
+        });
+    }
+    
+    return ordersToFilter;
+});
+
+const resetOrderFilters = () => {
+    orderSearchQuery.value = '';
+    orderDateFilter.value = '';
+    orderStatusFilter.value = 'Semua';
+};
 
 // Helper to classify shipping method type
 const getShippingType = (method) => {
@@ -103,6 +149,8 @@ const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
         case 'pending': return 'pending';
         case 'success': return 'success';
+        case 'shipping': return 'pending';
+        case 'completed': return 'success';
         case 'cancelled': return 'cancelled';
         default: return 'pending';
     }
@@ -110,8 +158,11 @@ const getStatusClass = (status) => {
 
 const getStatusLabel = (status) => {
     switch (status?.toLowerCase()) {
-        case 'pending': return 'Verifikasi Pembayaran';
-        case 'success': return 'success';
+        case 'pending': return 'Menunggu Konfirmasi';
+        case 'success': return 'Diproses';
+        case 'verified': return 'Diproses';
+        case 'shipping': return 'Dikirim';
+        case 'completed': return 'Selesai';
         case 'cancelled': return 'Dibatalkan';
         default: return status;
     }
@@ -172,8 +223,37 @@ const toggleBlockCustomer = (customerUsername) => {
 
                 <!-- Tab 1: Orders -->
                 <div v-if="activeTab === 'orders'" class="table-card">
-                    <div class="table-header">
-                        <h3 style="font-size:18px;">Daftar Transaksi</h3>
+                    <div class="table-header" style="flex-direction: column; gap: 16px;">
+                        <h3 style="font-size:18px; align-self: flex-start; margin: 0;">Daftar Transaksi</h3>
+                        
+                        <!-- Order Filters -->
+                        <div class="d-flex align-center gap-4 flex-wrap w-100" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <!-- Search -->
+                            <div style="position: relative; flex: 1; min-width: 250px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input v-model="orderSearchQuery" type="text" placeholder="Cari ID Pesanan / Produk" style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            
+                            <!-- Date Filter -->
+                            <div style="position: relative; min-width: 150px;">
+                                <input v-model="orderDateFilter" type="date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569;">
+                            </div>
+                        </div>
+
+                        <!-- Status Pills -->
+                        <div class="d-flex align-center gap-2 flex-wrap w-100">
+                            <span style="font-size: 13px; font-weight: 700; color: #64748b; margin-right: 8px;">Status:</span>
+                            <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan']" :key="status">
+                                <button
+                                    @click="orderStatusFilter = status"
+                                    style="padding: 4px 12px; font-size: 12px; border-radius: 16px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
+                                    :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
+                                >
+                                    {{ status }}
+                                </button>
+                            </template>
+                            <span @click="resetOrderFilters" style="font-size: 12px; font-weight: 700; color: #16a34a; cursor: pointer; margin-left: auto;">Reset Filter</span>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="data-table">
@@ -188,7 +268,7 @@ const toggleBlockCustomer = (customerUsername) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="order in orders" :key="order.id">
+                                <tr v-for="order in filteredOrders" :key="order.id">
                                     <td style="font-weight: 800; font-family: monospace;">{{ order.id }}</td>
                                     <td>{{ formatDate(order.createdAt) }}</td>
                                     <td style="font-weight: 600; color: #0f172a;">
@@ -203,7 +283,7 @@ const toggleBlockCustomer = (customerUsername) => {
                                     <!-- Kode Resi: Show only for Jasa Kurir (JNE/JNT/etc) -->
                                     <td style="font-weight: 700; font-family: monospace; color: #0f172a;">
                                         <template v-if="getShippingType(order.shippingMethod) === 'kurir'">
-                                            {{ order.shippingCode || '-' }}
+                                            {{ order.shipping?.waybillId || '-' }}
                                         </template>
                                         <template v-else>
                                             <span style="color: #94a3b8;">-</span>
@@ -213,17 +293,9 @@ const toggleBlockCustomer = (customerUsername) => {
                                     <!-- Aksi Logistik -->
                                     <td class="text-center">
                                         <template v-if="order.status?.toUpperCase() !== 'PENDING' && order.status?.toUpperCase() !== 'CANCELLED'">
-                                            <!-- Jasa Kurir (JNE, JNT, dll): No action, just show - or Input Resi -->
+                                            <!-- Jasa Kurir (JNE, JNT, dll): No action, just show - -->
                                             <template v-if="getShippingType(order.shippingMethod) === 'kurir'">
-                                                <button 
-                                                    v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED'"
-                                                    @click="openShippingModal(order.id)"
-                                                    class="btn btn-primary"
-                                                    style="padding: 6px 14px; font-size: 12px; background: var(--color-info); border-radius: 6px;"
-                                                >
-                                                    Input Resi
-                                                </button>
-                                                <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
+                                                <span style="color: #94a3b8; font-size: 12px;">-</span>
                                             </template>
 
                                             <!-- Ambil Di Toko: Show Selesai button -->
@@ -258,9 +330,9 @@ const toggleBlockCustomer = (customerUsername) => {
                                         <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
                                     </td>
                                 </tr>
-                                <tr v-if="orders.length === 0">
+                                <tr v-if="filteredOrders.length === 0">
                                     <td colspan="6" class="text-center text-muted" style="padding: 40px 0;">
-                                        Belum ada order masuk di sistem.
+                                        Belum ada order yang sesuai.
                                     </td>
                                 </tr>
                             </tbody>

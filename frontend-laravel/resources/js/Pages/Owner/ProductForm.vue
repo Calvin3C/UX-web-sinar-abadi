@@ -31,7 +31,14 @@ const form = useForm({
     name: props.product?.name || '',
     category: props.product?.category || '',
     price: props.product?.price || 0,
-    ...(isEdit.value ? {} : { stock: 0 }),
+    stock: props.product?.stock || 0,
+    brand: props.product?.brand || '',
+    weight: props.product?.weight || 0,
+    length: props.product?.length || 1,
+    width: props.product?.width || 1,
+    height: props.product?.height || 1,
+    unit: props.product?.unit || '',
+    minPurchase: props.product?.minPurchase || 1,
     isLarge: props.product?.isLarge || false,
     img: props.product?.img || '',
     photo_main: null,
@@ -151,6 +158,81 @@ const uniqueCategories = computed(() => {
                             </div>
                         </div>
 
+                        <!-- Merek -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 20px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Merek</label>
+                            <input
+                                v-model="form.brand"
+                                type="text"
+                                placeholder="Masukkan Merek Produk (Opsional)"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                            >
+                        </div>
+
+                        <!-- Berat -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 20px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Berat (Gram)</label>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <input
+                                    v-model.number="form.weight"
+                                    type="number"
+                                    placeholder="Berat dalam Gram"
+                                    min="0"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                                >
+                                <span style="font-size: 14px; color: #64748b; white-space: nowrap;">
+                                    ≈ {{ (form.weight / 1000).toLocaleString('id-ID', {maximumFractionDigits: 2}) }} Kg
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Dimensi (P x L x T) -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 20px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Dimensi (cm)</label>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <input
+                                    v-model.number="form.length"
+                                    type="number"
+                                    placeholder="Panjang"
+                                    min="1"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                                    title="Panjang (cm)"
+                                >
+                                <span style="color: #64748b; font-weight: bold;">×</span>
+                                <input
+                                    v-model.number="form.width"
+                                    type="number"
+                                    placeholder="Lebar"
+                                    min="1"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                                    title="Lebar (cm)"
+                                >
+                                <span style="color: #64748b; font-weight: bold;">×</span>
+                                <input
+                                    v-model.number="form.height"
+                                    type="number"
+                                    placeholder="Tinggi"
+                                    min="1"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                                    title="Tinggi (cm)"
+                                >
+                            </div>
+                            <p style="grid-column: 2; margin: 0; font-size: 12px; color: #64748b; margin-top: -8px;">
+                                Opsional. Biarkan 1×1×1 jika tidak ada data volumetrik khusus.
+                            </p>
+                        </div>
+
+                        <!-- Satuan -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 20px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Satuan</label>
+                            <input
+                                v-model="form.unit"
+                                type="text"
+                                placeholder="Cth: Sak, Pcs, Lembar"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                            >
+                        </div>
+
                         <!-- Harga -->
                         <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 20px; gap: 16px;">
                             <label style="font-size: 14px; font-weight: 600; color: #334155;">Harga (Rp)</label>
@@ -163,22 +245,27 @@ const uniqueCategories = computed(() => {
                             >
                         </div>
 
-                        <!-- Stok (hanya untuk mode create, stok dikelola terpisah saat edit) -->
-                        <div v-if="!isEdit" style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
-                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok Awal</label>
+                        <!-- Stok -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok</label>
                             <input
                                 v-model.number="form.stock"
                                 type="number"
-                                placeholder="Masukkan Jumlah Stok Awal"
+                                :placeholder="isEdit ? 'Masukkan Jumlah Stok' : 'Masukkan Jumlah Stok Awal'"
                                 min="0"
                                 style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
                             >
                         </div>
-                        <div v-else style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
-                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Stok</label>
-                            <div style="padding: 10px 14px; background: #f1f5f9; border-radius: 6px; font-size: 14px; color: #64748b;">
-                                Stok dikelola melalui menu "Update Stok" di Dashboard
-                            </div>
+                        <!-- Pembelian Minimal -->
+                        <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; margin-bottom: 28px; gap: 16px;">
+                            <label style="font-size: 14px; font-weight: 600; color: #334155;">Pembelian Minimal</label>
+                            <input
+                                v-model.number="form.minPurchase"
+                                type="number"
+                                placeholder="Minimal jumlah pembelian"
+                                min="1"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; color: #0f172a; outline: none; transition: border 0.2s;"
+                            >
                         </div>
 
                         <!-- Divider -->

@@ -56,6 +56,7 @@ Route::middleware('auth.api:customer')->group(function () {
 Route::middleware('auth.api:customer')->prefix('customer')->name('customer.')->group(function () {
     Route::get('/dashboard', [CustomerController::class, 'dashboard'])->name('dashboard');
     Route::post('/orders/{id}/proof', [CustomerController::class, 'uploadProof'])->name('upload-proof');
+    Route::put('/orders/{id}/complete', [CustomerController::class, 'completeOrder'])->name('complete-order');
     Route::get('/tracking', [CustomerController::class, 'trackOrder'])->name('tracking');
 });
 
