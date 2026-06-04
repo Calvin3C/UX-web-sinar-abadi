@@ -145,7 +145,7 @@ const saveAddress = () => {
 const activeOrders = computed(() => {
     return (props.orders || []).filter(o => {
         const s = o.status?.toUpperCase();
-        return s !== 'COMPLETED' && s !== 'CANCELLED';
+        return s !== 'COMPLETED';
     });
 });
 
@@ -416,16 +416,16 @@ const handleUploadProof = () => {
 
                         <!-- Status Pills -->
                         <div class="d-flex align-center gap-2 flex-wrap">
-                            <span style="font-size: 14px; font-weight: 700; color: #0f172a; margin-right: 8px;">Status</span>
-                            <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan']" :key="status">
-                                <!-- Hanya tampilkan Selesai di menu Riwayat Selesai, dan sembunyikan yang lain jika di menu Riwayat -->
-                                <button v-if="activeMenu !== 'riwayat' || (activeMenu === 'riwayat' && (status === 'Semua' || status === 'Selesai' || status === 'Dibatalkan'))"
-                                    @click="orderStatusFilter = status"
-                                    style="padding: 6px 16px; font-size: 13px; border-radius: 20px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
-                                    :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
-                                >
-                                    {{ status }}
-                                </button>
+                            <template v-if="activeMenu !== 'riwayat'">
+                                <span style="font-size: 14px; font-weight: 700; color: #0f172a; margin-right: 8px;">Status</span>
+                                <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Dibatalkan']" :key="status">
+                                    <button @click="orderStatusFilter = status"
+                                        style="padding: 6px 16px; font-size: 13px; border-radius: 20px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
+                                        :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
+                                    >
+                                        {{ status }}
+                                    </button>
+                                </template>
                             </template>
                             <span @click="resetFilters" style="font-size: 13px; font-weight: 700; color: #16a34a; cursor: pointer; margin-left: auto;">Reset Filter</span>
                         </div>
@@ -554,6 +554,18 @@ const handleUploadProof = () => {
                             <div style="font-size: 13px; color: #065f46;">
                                 <strong style="display:block; margin-bottom: 4px;">✅ Pesanan Selesai</strong>
                                 Pesanan Anda telah selesai diproses. Terima kasih telah berbelanja di Sinar Abadi!
+                            </div>
+                        </div>
+
+                        <!-- Cancelled order info -->
+                        <div 
+                            v-else-if="order.status?.toUpperCase() === 'CANCELLED'" 
+                            class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
+                            style="background: #fef2f2; border: 1px solid #ef4444; padding:16px; border-radius: var(--radius-sm);"
+                        >
+                            <div style="font-size: 13px; color: #b91c1c;">
+                                <strong style="display:block; margin-bottom: 4px;">❌ Pesanan Dibatalkan</strong>
+                                Pesanan ini telah dibatalkan. Jika Anda sudah melakukan pembayaran, silakan hubungi CS kami.
                             </div>
                         </div>
                     </div>

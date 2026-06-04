@@ -172,30 +172,62 @@ const addressForm = useForm({
     address: '',
     catatan: '',
     isMain: false,
+    biteshipAreaId: '',
 });
+
+const areaSearchQuery = ref('');
+const isSearchingArea = ref(false);
+const areaSearchResults = ref([]);
+
+let searchTimeout;
+watch(areaSearchQuery, (newVal) => {
+    if (!newVal || newVal.length < 3) {
+        areaSearchResults.value = [];
+        return;
+    }
+    
+    clearTimeout(searchTimeout);
+    isSearchingArea.value = true;
+    
+    searchTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`http://localhost:8080/api/biteship/maps?input=${encodeURIComponent(newVal)}`);
+            if (res.ok) {
+                const data = await res.json();
+                areaSearchResults.value = data.areas || [];
+            }
+        } catch (e) {
+            console.error("Failed to fetch areas", e);
+        } finally {
+            isSearchingArea.value = false;
+        }
+    }, 500);
+});
+
+const selectArea = (area) => {
+    addressForm.biteshipAreaId = area.id;
+    addressForm.kota = area.name;
+    areaSearchQuery.value = `${area.name}, ${area.administrative_division_level_2_name}, ${area.administrative_division_level_1_name} ${area.postal_code}`;
+    areaSearchResults.value = [];
+};
 
 // Update Address from Payment.vue
 const saveEditAddress = () => {
+    const payload = {
+        label: addressForm.label,
+        name: addressForm.name,
+        phone: addressForm.phone,
+        kota: addressForm.kota,
+        address: addressForm.address,
+        catatan: addressForm.catatan,
+        isMain: addressForm.isMain,
+        biteshipAreaId: addressForm.biteshipAreaId,
+    };
+
     if (addressForm.id === null) {
-        addAddress({
-            label: addressForm.label,
-            name: addressForm.name,
-            phone: addressForm.phone,
-            kota: addressForm.kota,
-            address: addressForm.address,
-            catatan: addressForm.catatan,
-            isMain: addressForm.isMain,
-        });
+        addAddress(payload);
     } else {
-        updateAddress(addressForm.id, {
-            label: addressForm.label,
-            name: addressForm.name,
-            phone: addressForm.phone,
-            kota: addressForm.kota,
-            address: addressForm.address,
-            catatan: addressForm.catatan,
-            isMain: addressForm.isMain,
-        });
+        updateAddress(addressForm.id, payload);
     }
     isEditAddressModalOpen.value = false;
     
@@ -213,6 +245,8 @@ const openAddAddressModal = () => {
     addressForm.address = '';
     addressForm.catatan = '';
     addressForm.isMain = false;
+    addressForm.biteshipAreaId = '';
+    areaSearchQuery.value = '';
     addressForm.name = props.user?.name || '';
     addressForm.phone = props.user?.phone || '';
     isEditAddressModalOpen.value = true;
@@ -227,6 +261,8 @@ const openEditAddress = (addr) => {
     addressForm.address = addr.address;
     addressForm.catatan = addr.catatan || '';
     addressForm.isMain = addr.isMain || false;
+    addressForm.biteshipAreaId = addr.biteshipAreaId || '';
+    areaSearchQuery.value = addr.kota || '';
     isEditAddressModalOpen.value = true;
 };
 
@@ -652,8 +688,17 @@ const handleCheckout = () => {
                     </div>
 
                     <div style="position: relative; margin-bottom: 24px;">
-                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Kota & Kecamatan</label>
-                        <input type="text" v-model="addressForm.kota" required class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <label style="position: absolute; top: -8px; left: 12px; background: white; padding: 0 4px; font-size: 12px; color: #64748b; font-weight: 500;">Kota & Kecamatan / Kodepos (Cari)</label>
+                        <input type="text" v-model="areaSearchQuery" placeholder="Ketik nama kecamatan atau kodepos..." class="form-input" style="width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                        <div v-if="isSearchingArea" style="position: absolute; right: 12px; top: 16px; font-size: 12px; color: #64748b;">Mencari...</div>
+                        
+                        <!-- Autocomplete Dropdown -->
+                        <div v-if="areaSearchResults.length > 0" style="position: absolute; z-index: 10; width: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 4px; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                            <div v-for="area in areaSearchResults" :key="area.id" @click="selectArea(area)" style="padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; hover: background: #f8fafc;">
+                                <div style="font-weight: 600; font-size: 14px; color: #0f172a;">{{ area.name }}</div>
+                                <div style="font-size: 12px; color: #64748b;">{{ area.administrative_division_level_2_name }}, {{ area.administrative_division_level_1_name }} {{ area.postal_code }}</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div style="position: relative; margin-bottom: 24px;">

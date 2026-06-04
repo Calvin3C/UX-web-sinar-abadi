@@ -69,8 +69,8 @@ const formatDate = (dateStr) => {
 const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
         case 'pending': return 'pending';
-        case 'success': return 'success';
-        case 'verified': return 'success';
+        case 'success': return 'warning';
+        case 'verified': return 'warning';
         case 'shipping': return 'pending';
         case 'completed': return 'success';
         case 'cancelled': return 'cancelled';

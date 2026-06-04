@@ -201,6 +201,7 @@ select.form-input { cursor: pointer; }
 .data-table tbody tr:hover { background-color: #f8fafc; }
 .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
 .status-pill.pending { background: #fef3c7; color: #b45309; }
+.status-pill.warning { background: #fef3c7; color: #b45309; }
 .status-pill.success { background: #d1fae5; color: #047857; }
 .status-pill.refund { background: #fce7f3; color: #be185d; }
 .status-pill.cancelled { background: #fee2e2; color: #b91c1c; }

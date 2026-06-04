@@ -316,6 +316,29 @@ func UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
+	// Restore stock if the order is being cancelled
+	if input.Status == "cancelled" && order.Status != "cancelled" {
+		for _, item := range order.Items {
+			var product models.Product
+			if err := config.DB.Where("id = ?", item.ProductID).First(&product).Error; err == nil {
+				config.DB.Model(&product).Update("sold", product.Sold-item.Qty)
+			}
+			var currentStock int
+			config.DB.Model(&models.StockLog{}).
+				Where("product_id = ?", item.ProductID).
+				Select("COALESCE(SUM(qty_changed), 0)").
+				Scan(&currentStock)
+			
+			config.DB.Create(&models.StockLog{
+				ProductID:   item.ProductID,
+				ChangeType:  "addition",
+				QtyChanged:  item.Qty,
+				FinalStock:  currentStock + item.Qty,
+				Description: fmt.Sprintf("Pembatalan Pesanan (Order %s)", order.ID),
+			})
+		}
+	}
+
 	config.DB.Model(&order).Updates(updates)
 
 	// If payment is successful, create an order in Biteship

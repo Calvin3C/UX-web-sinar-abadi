@@ -106,6 +106,12 @@ const handleKurirStatusChange = (orderId, newStatus) => {
     }
 };
 
+const handleMarkShipping = (orderId) => {
+    router.put(`/admin/orders/${orderId}/shipping`, {
+        status: 'SHIPPING',
+    }, { preserveScroll: true });
+};
+
 const openShippingModal = (orderId) => {
     selectedOrderId.value = orderId;
     shippingCode.value = '';
@@ -148,7 +154,8 @@ const formatDate = (dateStr) => {
 const getStatusClass = (status) => {
     switch (status?.toLowerCase()) {
         case 'pending': return 'pending';
-        case 'success': return 'success';
+        case 'success': return 'warning';
+        case 'verified': return 'warning';
         case 'shipping': return 'pending';
         case 'completed': return 'success';
         case 'cancelled': return 'cancelled';
@@ -293,9 +300,16 @@ const toggleBlockCustomer = (customerUsername) => {
                                     <!-- Aksi Logistik -->
                                     <td class="text-center">
                                         <template v-if="order.status?.toUpperCase() !== 'PENDING' && order.status?.toUpperCase() !== 'CANCELLED'">
-                                            <!-- Jasa Kurir (JNE, JNT, dll): No action, just show - -->
+                                            <!-- Jasa Kurir (JNE, JNT, dll): Admin can mark as shipped -->
                                             <template v-if="getShippingType(order.shippingMethod) === 'kurir'">
-                                                <span style="color: #94a3b8; font-size: 12px;">-</span>
+                                                <button 
+                                                    v-if="order.status?.toUpperCase() === 'SUCCESS' || order.status?.toUpperCase() === 'VERIFIED'"
+                                                    @click="handleMarkShipping(order.id)"
+                                                    style="padding: 6px 18px; font-size: 12px; font-weight: 700; color: white; background: #e11d48; border: none; border-radius: 6px; cursor: pointer;"
+                                                >
+                                                    Kirim Pesanan
+                                                </button>
+                                                <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
                                             </template>
 
                                             <!-- Ambil Di Toko: Show Selesai button -->
