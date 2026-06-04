@@ -84,4 +84,8 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
     Route::post('/products', [OwnerController::class, 'storeProduct'])->name('products.store');
     Route::get('/products/{id}/edit', [OwnerController::class, 'editProduct'])->name('products.edit');
     Route::put('/products/{id}', [OwnerController::class, 'updateProduct'])->name('products.update');
+
+    // Variants CRUD
+    Route::post('/products/{id}/variants', [OwnerController::class, 'createVariant'])->name('products.variants.store');
+    Route::delete('/products/{id}/variants/{variantId}', [OwnerController::class, 'deleteVariant'])->name('products.variants.destroy');
 });

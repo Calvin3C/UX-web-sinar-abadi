@@ -81,6 +81,14 @@ func CreateOrder(c *gin.Context) {
 	userID, _ := c.Get("userId")
 	username, _ := c.Get("username")
 
+	var customerNameStr string
+	var customer models.Customer
+	if err := config.DB.Where("id = ?", userID).First(&customer).Error; err == nil && customer.Name != "" {
+		customerNameStr = customer.Name
+	} else {
+		customerNameStr = username.(string)
+	}
+
 	orderID := generateOrderID()
 
 	// Validate stock availability and decrement
@@ -171,7 +179,7 @@ func CreateOrder(c *gin.Context) {
 		ID:             orderID,
 		Date:           time.Now().Format("2006-01-02"),
 		CustomerID:     userID.(uint),
-		CustomerName:   username.(string),
+		CustomerName:   customerNameStr,
 		Phone:          input.Phone,
 		Address:        input.Address,
 		ShippingMethod: input.ShippingMethod,

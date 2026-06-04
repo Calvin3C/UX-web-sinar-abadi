@@ -36,6 +36,14 @@ const isStockModalOpen = ref(false);
 const selectedProductId = ref('');
 const stockAmount = ref(0);
 
+// Variant Modal State
+const isVariantModalOpen = ref(false);
+const selectedProductVariants = ref([]);
+const newVariantForm = useForm({
+    name: '',
+    price: 0,
+});
+
 
 const newAdminForm = useForm({
     name: '',
@@ -106,6 +114,41 @@ const handleUpdateStock = () => {
         },
         preserveScroll: true,
     });
+};
+
+const openVariantModal = (product) => {
+    selectedProductId.value = product.id;
+    selectedProductVariants.value = product.variants || [];
+    newVariantForm.reset();
+    isVariantModalOpen.value = true;
+};
+
+const handleAddVariant = () => {
+    newVariantForm.post(`/owner/products/${selectedProductId.value}/variants`, {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            // Update variants array from props if possible, or just let page reload handle it
+            const prod = page.props.products.find(p => p.id === selectedProductId.value);
+            if (prod) {
+                selectedProductVariants.value = prod.variants || [];
+            }
+            newVariantForm.reset();
+        }
+    });
+};
+
+const handleRemoveVariant = (variantId) => {
+    if (confirm('Yakin ingin menghapus varian ini?')) {
+        router.delete(`/owner/products/${selectedProductId.value}/variants/${variantId}`, {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const prod = page.props.products.find(p => p.id === selectedProductId.value);
+                if (prod) {
+                    selectedProductVariants.value = prod.variants || [];
+                }
+            }
+        });
+    }
 };
 
 // Filtered products based on search and stock filter
@@ -375,12 +418,20 @@ const handleDeleteAdmin = (adminUsername) => {
                                         {{ product.sold || 0 }}
                                     </td>
                                     <td class="text-center">
-                                        <Link
-                                            :href="`/owner/products/${product.id}/edit`"
-                                            style="padding: 5px 14px; font-size: 12px; font-weight: 600; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; text-decoration: none; display: inline-block; transition: all 0.2s;"
-                                        >
-                                            Atur
-                                        </Link>
+                                        <div class="d-flex align-center justify-center gap-2">
+                                            <button
+                                                @click="openVariantModal(product)"
+                                                style="padding: 5px 14px; font-size: 12px; font-weight: 600; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; transition: all 0.2s;"
+                                            >
+                                                Varian
+                                            </button>
+                                            <Link
+                                                :href="`/owner/products/${product.id}/edit`"
+                                                style="padding: 5px 14px; font-size: 12px; font-weight: 600; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; text-decoration: none; display: inline-block; transition: all 0.2s;"
+                                            >
+                                                Atur
+                                            </Link>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr v-if="filteredProducts.length === 0">
@@ -646,6 +697,55 @@ const handleDeleteAdmin = (adminUsername) => {
                         <button type="button" @click="isStockModalOpen = false" class="btn btn-outline w-100">Batal</button>
                         <button type="submit" class="btn btn-primary w-100">Simpan Stok</button>
                     </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Variant Modal -->
+        <div v-if="isVariantModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+            <div class="table-card" style="width:100%; max-width:500px; padding:32px; animation: slideUp 0.3s forwards;">
+                <div class="d-flex justify-between align-center mb-6">
+                    <h3 style="margin: 0;">Kelola Varian</h3>
+                    <button @click="isVariantModalOpen = false" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b;">&times;</button>
+                </div>
+                
+                <div v-if="selectedProductVariants.length > 0" class="mb-6">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0;">
+                                <th style="text-align: left; padding: 8px; color: #64748b;">Nama Varian</th>
+                                <th style="text-align: right; padding: 8px; color: #64748b;">Harga (Rp)</th>
+                                <th style="text-align: center; padding: 8px; color: #64748b; width: 60px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="variant in selectedProductVariants" :key="variant.id" style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 12px 8px; font-weight: 600; color: #334155;">{{ variant.name }}</td>
+                                <td style="padding: 12px 8px; text-align: right; color: #0f172a;">{{ variant.price > 0 ? formatPrice(variant.price) : 'Default' }}</td>
+                                <td style="padding: 12px 8px; text-align: center;">
+                                    <button @click="handleRemoveVariant(variant.id)" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;">Hapus</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else class="mb-6 text-center" style="padding: 20px; background: #f8fafc; border-radius: 8px; color: #64748b; font-size: 14px;">
+                    Belum ada varian untuk produk ini.
+                </div>
+
+                <form @submit.prevent="handleAddVariant" style="background: #f1f5f9; padding: 16px; border-radius: 8px;">
+                    <h4 class="mb-3" style="font-size: 14px; color: #334155;">Tambah Varian Baru</h4>
+                    <div class="d-flex gap-2 mb-3">
+                        <div style="flex: 1;">
+                            <input v-model="newVariantForm.name" type="text" placeholder="Nama Varian (Cth: Merah)" required class="form-input" style="font-size: 13px;">
+                        </div>
+                        <div style="flex: 1;">
+                            <input v-model.number="newVariantForm.price" type="number" min="0" placeholder="Harga Khusus (0 = default)" class="form-input" style="font-size: 13px;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" :disabled="newVariantForm.processing" style="padding: 8px 16px;">
+                        {{ newVariantForm.processing ? 'Menambahkan...' : 'Tambah Varian' }}
+                    </button>
                 </form>
             </div>
         </div>

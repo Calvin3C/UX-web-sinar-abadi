@@ -312,4 +312,42 @@ class OwnerController extends Controller
 
         return redirect()->route('owner.dashboard')->with('success', 'Produk berhasil diperbarui.');
     }
+
+    /**
+     * Create a new product variant.
+     */
+    public function createVariant(Request $request, string $productId)
+    {
+        $request->validate([
+            'name'  => 'required|string|max:100',
+            'price' => 'nullable|integer|min:0',
+        ]);
+
+        $token = session('auth_token');
+        $result = $this->api->createVariant($token, $productId, [
+            'name'  => $request->input('name'),
+            'price' => (int) $request->input('price', 0),
+        ]);
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['error'] ?? 'Gagal menambahkan varian.');
+        }
+
+        return back()->with('success', 'Varian berhasil ditambahkan.');
+    }
+
+    /**
+     * Delete a product variant.
+     */
+    public function deleteVariant(string $productId, string $variantId)
+    {
+        $token = session('auth_token');
+        $result = $this->api->deleteVariant($token, $productId, $variantId);
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['error'] ?? 'Gagal menghapus varian.');
+        }
+
+        return back()->with('success', 'Varian berhasil dihapus.');
+    }
 }

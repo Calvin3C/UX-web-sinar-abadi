@@ -141,6 +141,36 @@ class ApiService
         ];
     }
 
+    /**
+     * Create a new product variant (owner only).
+     */
+    public function createVariant(string $token, string $productId, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->post("{$this->baseUrl}/products/{$productId}/variants", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
+     * Delete a product variant (owner only).
+     */
+    public function deleteVariant(string $token, string $productId, string $variantId): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->delete("{$this->baseUrl}/products/{$productId}/variants/{$variantId}");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
     // =====================================================================
     // ORDERS
     // =====================================================================

@@ -79,6 +79,10 @@ func main() {
 		productAuth.POST("", middleware.RoleRequired("admin", "owner"), controllers.CreateProduct)
 		productAuth.PUT("/:id/stock", middleware.RoleRequired("owner"), controllers.UpdateStock)
 		productAuth.PUT("/:id", middleware.RoleRequired("admin", "owner"), controllers.UpdateProduct)
+
+		// Variant management (Owner only)
+		productAuth.POST("/:id/variants", middleware.RoleRequired("owner"), controllers.CreateVariant)
+		productAuth.DELETE("/:id/variants/:variantId", middleware.RoleRequired("owner"), controllers.DeleteVariant)
 	}
 
 	// --- Orders (All require auth) ---

@@ -18,7 +18,8 @@ type Product struct {
 	Price       int64     `gorm:"not null" json:"price"`          // in Rupiah (integer, no floating point)
 	Sold        int       `gorm:"not null;default:0" json:"sold"` // popularity counter
 	IsLarge     bool      `gorm:"default:false" json:"isLarge"`   // true = heavy/bulky → shipping restriction
-	ImageURL    string    `gorm:"size:500" json:"img"`            // JSON key "img" matches frontend
+	ImageURL    string           `gorm:"size:500" json:"img"`            // JSON key "img" matches frontend
+	Variants    []ProductVariant `gorm:"foreignKey:ProductID" json:"variants"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -40,7 +41,8 @@ type ProductResponse struct {
 	Stock       int       `json:"stock"` // computed from stock_logs
 	Sold        int       `json:"sold"`
 	IsLarge     bool      `json:"isLarge"`
-	ImageURL    string    `json:"img"`
+	ImageURL    string           `json:"img"`
+	Variants    []ProductVariant `json:"variants"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }

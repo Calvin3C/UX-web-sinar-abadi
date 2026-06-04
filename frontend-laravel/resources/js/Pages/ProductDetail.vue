@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { avianColors, avitexColors, emcoColors, aquaproofColors, decolithColors, noDropColors } from '@/data/paintColors';
+import { avianColors, avitexColors, emcoStandarColors, emcoGunungColors, emcoBintangColors, aquaproofColors, decolithColors, noDropColors } from '@/data/paintColors';
 
 const props = defineProps({
     product: {
@@ -68,8 +68,19 @@ if (!props.product.unit) {
 
 const quantity = ref(minPurchase);
 
+const displayPrice = computed(() => {
+    let base = props.product.price;
+    if (props.product.variants && props.product.variants.length > 0) {
+        const variant = props.product.variants.find(v => v.name === selectedColor.value);
+        if (variant && variant.price > 0) {
+            return variant.price;
+        }
+    }
+    return base;
+});
+
 const subtotal = computed(() => {
-    return props.product.price * quantity.value;
+    return displayPrice.value * quantity.value;
 });
 
 const decreaseQty = () => {
@@ -98,7 +109,7 @@ const handleAddToCart = () => {
     router.post('/cart/add', {
         id: props.product.id,
         name: props.product.name,
-        price: props.product.price,
+        price: displayPrice.value,
         img: props.product.img || '',
         isLarge: props.product.isLarge || false,
         weight: props.product.weight || 0,
@@ -152,10 +163,17 @@ const getWaLink = () => {
 };
 
 const currentColors = computed(() => {
+    if (props.product.variants && props.product.variants.length > 0) {
+        return props.product.variants.map(v => v.name);
+    }
     const name = props.product.name.toLowerCase();
     if (name.includes('avian')) return avianColors;
     if (name.includes('avitex')) return avitexColors;
-    if (name.includes('emco')) return emcoColors;
+    if (name.includes('emco')) {
+        if (name.includes('bintang')) return emcoBintangColors;
+        if (name.includes('gunung')) return emcoGunungColors;
+        return emcoStandarColors;
+    }
     if (name.includes('aquaproof')) return aquaproofColors;
     if (name.includes('decolith')) return decolithColors;
     if (name.includes('no drop')) return noDropColors;
@@ -247,50 +265,44 @@ const selectedColor = ref(currentColors.value.length > 0 ? currentColors.value[0
                 <div class="detail-left card">
                     <img :src="product.img || 'https://placehold.co/400x300/e2e8f0/64748b?text=No+Image'" :alt="product.name" class="main-image">
                     
-                    <button class="btn btn-outline w-100 mt-4" style="border-color: #cbd5e1; color: #0f172a;" @click="sharePage">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
-                        </svg>
-                        Bagikan Halaman
-                    </button>
+
                 </div>
 
                 <!-- Tengah: Info -->
                 <div class="detail-mid card">
                     <h1 class="product-title">{{ product.name }}</h1>
-                    <div class="product-price">{{ formatPrice(product.price) }}</div>
+                    <div class="product-price">{{ formatPrice(displayPrice) }}</div>
                     
                     <div class="badges">
                         <span class="badge" v-if="product.stock <= 10">Stok Terbatas</span>
-                        <span class="badge-outline">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="#10b981" style="vertical-align: middle;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                            Termasuk PPN
-                        </span>
+
                     </div>
 
                     <!-- Pilihan Warna -->
                     <div v-if="currentColors.length > 0" class="color-selection" style="margin-bottom: 24px;">
-                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 12px; font-size: 14px;">Kategori Warna:</div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
-                            <button
-                                v-for="cat in colorCategories"
-                                :key="cat"
-                                @click="selectedColorCategory = cat"
-                                :style="{
-                                    padding: '6px 12px',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    borderRadius: '20px',
-                                    border: selectedColorCategory === cat ? '1px solid #e11d48' : '1px solid #cbd5e1',
-                                    background: selectedColorCategory === cat ? '#e11d48' : '#f8fafc',
-                                    color: selectedColorCategory === cat ? 'white' : '#475569',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                }"
-                            >
-                                {{ cat }}
-                            </button>
-                        </div>
+                        <template v-if="!isKloset">
+                            <div style="font-weight: 600; color: #0f172a; margin-bottom: 12px; font-size: 14px;">Kategori Warna:</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+                                <button
+                                    v-for="cat in colorCategories"
+                                    :key="cat"
+                                    @click="selectedColorCategory = cat"
+                                    :style="{
+                                        padding: '6px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        borderRadius: '20px',
+                                        border: selectedColorCategory === cat ? '1px solid #e11d48' : '1px solid #cbd5e1',
+                                        background: selectedColorCategory === cat ? '#e11d48' : '#f8fafc',
+                                        color: selectedColorCategory === cat ? 'white' : '#475569',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                    }"
+                                >
+                                    {{ cat }}
+                                </button>
+                            </div>
+                        </template>
 
                         <div style="font-weight: 600; color: #0f172a; margin-bottom: 12px; font-size: 15px;">Warna: <span style="font-weight: 500; color: #334155;">{{ selectedColor }}</span></div>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">

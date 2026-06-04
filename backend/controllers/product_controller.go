@@ -78,6 +78,7 @@ func toProductResponse(product models.Product) models.ProductResponse {
 		Sold:        product.Sold,
 		IsLarge:     product.IsLarge,
 		ImageURL:    product.ImageURL,
+		Variants:    product.Variants,
 		CreatedAt:   product.CreatedAt,
 		UpdatedAt:   product.UpdatedAt,
 	}
@@ -88,7 +89,7 @@ func toProductResponse(product models.Product) models.ProductResponse {
 func GetProducts(c *gin.Context) {
 	var products []models.Product
 
-	query := config.DB.Model(&models.Product{})
+	query := config.DB.Model(&models.Product{}).Preload("Variants")
 
 	// Search filter (by name)
 	if search := c.Query("search"); search != "" {
@@ -323,7 +324,7 @@ func GetProductByID(c *gin.Context) {
 	productID := c.Param("id")
 
 	var product models.Product
-	if result := config.DB.Where("id = ?", productID).First(&product); result.Error != nil {
+	if result := config.DB.Preload("Variants").Where("id = ?", productID).First(&product); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 		return
 	}

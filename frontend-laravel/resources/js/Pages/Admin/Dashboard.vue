@@ -269,6 +269,7 @@ const toggleBlockCustomer = (customerUsername) => {
                                     <th>ID Order</th>
                                     <th>Tanggal</th>
                                     <th>Metode Pengiriman</th>
+                                    <th>Alamat Pengiriman</th>
                                     <th>Status</th>
                                     <th>Kode Resi (Shipping)</th>
                                     <th class="text-center">Aksi Logistik</th>
@@ -280,6 +281,9 @@ const toggleBlockCustomer = (customerUsername) => {
                                     <td>{{ formatDate(order.createdAt) }}</td>
                                     <td style="font-weight: 600; color: #0f172a;">
                                         {{ order.shippingMethod || 'JNE' }}
+                                    </td>
+                                    <td style="max-width: 250px; white-space: normal; font-size: 13px;">
+                                        {{ order.shipping?.destinationAddress || '-' }}
                                     </td>
                                     <td>
                                         <span class="status-pill" :class="getStatusClass(order.status)">

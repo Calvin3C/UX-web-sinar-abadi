@@ -34,29 +34,44 @@ export const avitexColors = [
     "765 Sun Flower", "731 Sunshine", "680 Safari", "SB Super Black"
 ];
 
-export const emcoColors = [
-    "48 Cream", "39 Putih", "54 Light Grey", "113 Beige",
-    "51 Yellow", "69 Peach", "86 Lilac", "79 Mint",
-    "59 Bright Yellow", "52 Orange", "77 Violet", "55 Olive",
-    "117 Yellow", "53 Brown", "139 Purple", "110 Brown",
-    "118 Yellow", "61 Orange", "127 Pink", "62 Brown",
-    "119 Bright Yellow", "68 Orange", "141 Purple", "108 Dark Olive",
-    "67 Yellow", "116 Red", "78 Red", "37 Dark Brown",
-    "65 Brown", "133 Red", "132 Dark Red", "76 Brown",
-    "140 Brown", "131 Brown", "85 Red", "111 Dark Brown",
-    "91 Brown", "29 Dark Brown", "92 Brown", "40 Brown",
-    "31 Brown", "41 Brown", "93 Putih", "36 Pale Yellow",
-    "104 Light Green", "38 Green", "120 Pale Green", "90 Yellow Green",
-    "45 Grey", "56 Green", "121 Cyan", "46 Light Green",
-    "58 Grey", "136 Green", "107 Light Blue", "81 Teal",
-    "34 Blue", "66 Green", "73 Grey", "105 Green",
-    "106 Light Blue", "35 Green", "32 Grey", "96 Blue",
-    "109 Blue", "49 Dark Green", "80 Dark Blue", "88 Blue",
-    "99 Blue", "135 Blue", "44 Dark Olive", "102 Blue",
-    "27 Dark Blue", "70 Green", "84 Dark Red", "75 Dark Blue",
-    "28 Dark Blue", "57 Dark Green", "42 Hitam", "82 Navy",
-    "63 Green", "64 Dark Green", "87 Hitam Doff", "128 Dark Blue",
-    "89 Dark Green", "71 Dark Olive"
+export const emcoStandarColors = [
+    "48 Kuning Krem", "39 Putih", "54 Merah Muda Pucat",
+    "51 Kuning", "69 Peach", "86 Ungu Muda",
+    "59 Kuning Terang", "52 Jingga Muda", "77 Ungu",
+    "117 Kuning", "53 Cokelat Kekuningan", "139 Ungu",
+    "118 Kuning Telur", "61 Jingga", "127 Pink Flamingo",
+    "119 Kuning Terang", "68 Jingga Tua", "141 Ungu Tua",
+    "67 Kuning Emas", "116 Jingga Kemerahan", "78 Merah Ruby",
+    "65 Cokelat Muda", "133 Merah", "132 Merah Delima",
+    "140 Cokelat Emas", "131 Cokelat Manis", "85 Merah Tua",
+    "91 Cokelat", "29 Merah Bata", "92 Cokelat Tua",
+    "40 Cokelat Sawo", "31 Cokelat Gelap", "41 Cokelat Kopi",
+    "111 Bata", "33 Cokelat Kakao"
+];
+
+export const emcoGunungColors = [
+    "113 Kuning Gading", "93 Abu-abu Kehijauan", "36 Kuning Pucat",
+    "79 Hijau Nuri", "120 Abu-abu Hijau", "90 Hijau Zaitun Muda",
+    "55 Hijau Zaitun", "121 Biru Kehijauan", "46 Hijau Muda",
+    "110 Cokelat Susu", "107 Biru Abu-abu", "81 Biru Tosca",
+    "62 Cokelat", "73 Abu-abu Gelap", "105 Biru Abu-abu Muda",
+    "108 Hijau Zaitun Gelap", "32 Biru Keabu-abuan", "96 Biru Terang",
+    "37 Cokelat Tua", "80 Abu-abu Tua", "88 Biru Tua",
+    "76 Cokelat Kemerahan", "44 Hijau Tua", "102 Biru Gelap",
+    "111 Cokelat Gelap", "84 Merah Hati", "75 Biru Gelap",
+    "87 Cokelat Kopi", "42 Hitam", "82 Biru Dongker",
+    "128 Biru Malam", "83 Cokelat Kopra"
+];
+
+export const emcoBintangColors = [
+    "104 Hijau Pucat", "38 Hijau Muda", "56 Hijau Tosca",
+    "45 Hijau Zaitun Muda", "58 Hijau Zaitun", "136 Hijau Lemon",
+    "34 Hijau", "66 Hijau Daun", "35 Hijau Tua",
+    "106 Biru Muda", "49 Hijau Zamrud", "135 Hijau Gelap",
+    "109 Biru Terang", "99 Biru Cerah", "27 Hijau Rimba",
+    "102 Biru Laut", "70 Biru Sedang", "57 Hijau Gelap",
+    "28 Biru Dongker", "63 Biru Tua", "64 Hijau Sangat Gelap",
+    "89 Biru Sangat Gelap", "71 Hijau Army"
 ];
 
 export const aquaproofColors = [
