@@ -28,7 +28,8 @@ const loadAddresses = (username) => {
                 kota: 'Klojen, Kota Malang',
                 address: 'Perumahan Ijen Nirwana Cluster Green River Blok C3-11, Klojen, Kota Malang, Jawa Timur 65116 (Ijen Nirwana Green River C3-11)',
                 catatan: '',
-                pinpoint: true
+                pinpoint: true,
+                biteshipAreaId: 'IDNP11IDNC250IDND2615IDZ65116' // Valid Area ID for Klojen, 65116
             }
         ],
         budi: [

@@ -226,6 +226,8 @@ class CartController extends Controller
             'phone' => 'required|string',
             'courier' => 'required|string',
             'proof' => 'required|file|image|max:4096',
+            'biteship_area_id' => 'nullable|string',
+            'shipping_cost' => 'nullable|numeric',
         ]);
 
         $proofPath = null;
@@ -263,6 +265,8 @@ class CartController extends Controller
             'address'        => $logistic['address'],
             'shippingMethod' => $logistic['courier'],
             'paymentMethod'  => 'Transfer Bank ' . $request->input('bank'),
+            'biteshipAreaId' => $request->input('biteship_area_id', ''),
+            'shippingCost'   => (int) $request->input('shipping_cost', 0),
             'items'          => $items,
             'total'          => $totalProduct,
         ]);

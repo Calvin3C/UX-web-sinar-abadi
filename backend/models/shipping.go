@@ -11,6 +11,7 @@ type Shipping struct {
 	TrackingNumber     string    `gorm:"size:30" json:"trackingNumber"`               // Used for WhatsApp number
 	ShippingCost       int64     `gorm:"not null;default:0" json:"shippingCost"`
 	DestinationAddress string    `gorm:"type:text;not null" json:"destinationAddress"`
+	BiteshipAreaID     string    `json:"biteshipAreaId"` // Added for Biteship integration
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
 }

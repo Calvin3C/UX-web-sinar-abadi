@@ -49,6 +49,8 @@ const checkoutForm = useForm({
     phone: selectedAddress.value.phone,
     courier: selectedAddress.value.id === 99 ? 'Ambil Di Toko' : 'JNE',
     proof: null,
+    biteship_area_id: '',
+    shipping_cost: 0,
 });
 
 const handleProofUpload = (e) => {
@@ -56,19 +58,75 @@ const handleProofUpload = (e) => {
 };
 
 // Watch for changes in selectedAddress to update checkout form
-const selectAddress = (addr) => {
+const availableRates = ref([]);
+const isFetchingRates = ref(false);
+const selectedRate = ref(null);
+
+const fetchRates = async (addr) => {
+    availableRates.value = [];
+    selectedRate.value = null;
+    
+    if (!addr.biteshipAreaId) {
+        // Fallback for mock data without biteshipAreaId
+        availableRates.value = [
+             { id: 1, courier_name: 'JNE', courier_service_name: 'REG', price: 15000, duration: '2-3 hari' },
+             { id: 2, courier_name: 'SiCepat', courier_service_name: 'HALU', price: 12000, duration: '2-4 hari' }
+        ];
+        return;
+    }
+
+    isFetchingRates.value = true;
+    try {
+        const payload = {
+            destinationAreaId: addr.biteshipAreaId,
+            couriers: 'jne,sicepat,jnt',
+            items: props.cartItems.map(item => ({
+                name: item.name,
+                value: item.price,
+                quantity: item.qty,
+                weight: item.isLarge ? 15000 : 2000 // 15kg or 2kg
+            }))
+        };
+        const res = await fetch('http://localhost:8080/api/biteship/rates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            availableRates.value = data.pricing || [];
+        }
+    } catch (e) {
+        console.error("Failed to fetch rates", e);
+    } finally {
+        isFetchingRates.value = false;
+    }
+};
+
+const selectAddress = async (addr) => {
     if (!addr) return;
     
     selectedAddress.value = addr;
     checkoutForm.address = addr.kota ? `${addr.address}, ${addr.kota}` : addr.address;
     checkoutForm.phone = addr.phone;
+    checkoutForm.biteship_area_id = addr.biteshipAreaId || '';
+    
     if (addr.id === 99) {
         checkoutForm.courier = 'Ambil Di Toko';
+        selectedRate.value = null;
     } else if (activeTab.value === 'kurir') {
         checkoutForm.courier = 'Kurir Toko Sinar Abadi';
+        selectedRate.value = null;
     } else {
-        checkoutForm.courier = 'JNE';
+        checkoutForm.courier = ''; // Will be set when user picks a rate
+        await fetchRates(addr);
     }
+};
+
+const selectCourierRate = (rate) => {
+    selectedRate.value = rate;
+    checkoutForm.courier = `${rate.courier_name} ${rate.courier_service_name}`;
 };
 
 // Automatically select default address based on tab change
@@ -170,12 +228,23 @@ const ppn = computed(() => {
     return subtotal.value * 0.11;
 });
 
+const currentShippingCost = computed(() => {
+    if (activeTab.value === 'semua' && selectedRate.value) {
+        return selectedRate.value.price;
+    }
+    if (activeTab.value === 'ambil' || activeTab.value === 'kurir') {
+        return 0; // Or define Kurir Toko pricing logic
+    }
+    return props.logistic.cost || 0;
+});
+
 const grandTotal = computed(() => {
-    return subtotal.value + ppn.value + (props.logistic.cost || 0);
+    return subtotal.value + ppn.value + currentShippingCost.value;
 });
 
 const handleCheckout = () => {
     checkoutForm.bank = selectedBank.value;
+    checkoutForm.shipping_cost = currentShippingCost.value;
     checkoutForm.post('/checkout', {
         forceFormData: true,
     });
@@ -330,7 +399,7 @@ const handleCheckout = () => {
                             </div>
                             <div class="d-flex justify-between align-center mb-4" style="font-size: 14px; color: #64748b;">
                                 <span>Ongkos Kirim</span>
-                                <span style="color: #0f172a; font-weight: 500;">{{ logistic.cost > 0 ? formatPrice(logistic.cost) : 'Gratis' }}</span>
+                                <span style="color: #0f172a; font-weight: 500;">{{ currentShippingCost > 0 ? formatPrice(currentShippingCost) : 'Gratis' }}</span>
                             </div>
 
                             <div style="border-top: 1px solid #e2e8f0; padding-top: 16px;" class="d-flex justify-between align-center">
@@ -442,8 +511,39 @@ const handleCheckout = () => {
                             </div>
 
                             <!-- Checkmark -->
-                            <div v-if="selectedAddress.id === addr.id" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #e11d48;">
+                            <div v-if="selectedAddress.id === addr.id" style="position: absolute; right: 16px; top: 16px; color: #e11d48;">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+
+                            <!-- Courier Selection UI inside the selected address -->
+                            <div v-if="selectedAddress.id === addr.id && activeTab === 'semua'" style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #cbd5e1;">
+                                <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 12px;">Pilih Kurir Pengiriman (Biteship)</div>
+                                
+                                <div v-if="isFetchingRates" style="font-size: 13px; color: #64748b; padding: 12px; text-align: center;">
+                                    Menghitung ongkos kirim...
+                                </div>
+                                
+                                <div v-else-if="availableRates.length === 0" style="font-size: 13px; color: #dc2626;">
+                                    Gagal mendapatkan daftar ongkos kirim untuk alamat ini. Pastikan alamat memiliki kecamatan/kodepos yang valid.
+                                </div>
+                                
+                                <div v-else style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div 
+                                        v-for="(rate, idx) in availableRates" 
+                                        :key="idx"
+                                        @click.stop="selectCourierRate(rate)"
+                                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;"
+                                        :style="selectedRate === rate ? { borderColor: '#e11d48', background: '#fff1f2' } : { background: 'white' }"
+                                    >
+                                        <div>
+                                            <div style="font-weight: 700; font-size: 14px; color: #0f172a;">{{ rate.courier_name }} ({{ rate.courier_service_name }})</div>
+                                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Estimasi: {{ rate.duration }}</div>
+                                        </div>
+                                        <div style="font-weight: 800; font-size: 14px; color: #0f172a;">
+                                            {{ formatPrice(rate.price) }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -469,7 +569,16 @@ const handleCheckout = () => {
 
                 <!-- Footer with Save Button -->
                 <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; background: white;">
-                    <button @click="isAddressModalOpen = false" class="btn btn-primary w-100" style="background: #059669; border-color: #059669; padding: 14px; font-weight: 700; border-radius: 8px;">
+                    <div v-if="activeTab === 'semua' && !selectedRate" style="font-size: 13px; color: #dc2626; text-align: center; margin-bottom: 8px;">
+                        Pilih kurir pengiriman terlebih dahulu.
+                    </div>
+                    <button 
+                        @click="isAddressModalOpen = false" 
+                        class="btn btn-primary w-100" 
+                        style="background: #059669; border-color: #059669; padding: 14px; font-weight: 700; border-radius: 8px;"
+                        :disabled="activeTab === 'semua' && !selectedRate"
+                        :style="(activeTab === 'semua' && !selectedRate) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
+                    >
                         Simpan & Selesai
                     </button>
                 </div>

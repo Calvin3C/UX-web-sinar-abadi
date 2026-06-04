@@ -35,6 +35,7 @@ func main() {
 		&models.PaymentMethod{},
 		&models.Shipping{},
 		&models.Payment{},
+		&models.CustomerAddress{},
 	); err != nil {
 		log.Fatalf("❌ Auto-migration failed: %v", err)
 	}
@@ -88,6 +89,21 @@ func main() {
 		orderRoutes.PUT("/:id/status", middleware.RoleRequired("admin", "owner"), controllers.UpdateOrderStatus)
 		orderRoutes.PUT("/:id/proof", middleware.RoleRequired("customer"), controllers.UploadProof)
 	}
+
+	// --- Addresses (Customer only) ---
+	addressRoutes := api.Group("/addresses")
+	addressRoutes.Use(middleware.AuthRequired())
+	{
+		addressRoutes.GET("", middleware.RoleRequired("customer"), controllers.GetCustomerAddresses)
+		addressRoutes.POST("", middleware.RoleRequired("customer"), controllers.CreateCustomerAddress)
+		addressRoutes.PUT("/:id", middleware.RoleRequired("customer"), controllers.UpdateCustomerAddress)
+		addressRoutes.DELETE("/:id", middleware.RoleRequired("customer"), controllers.DeleteCustomerAddress)
+	}
+
+	// --- Biteship (Public/Customer) ---
+	api.GET("/biteship/maps", controllers.SearchBiteshipAreas)
+	api.POST("/biteship/rates", controllers.CalculateRates)
+	api.POST("/biteship/webhook", controllers.BiteshipWebhook)
 
 	// --- Users (Admin/Owner) ---
 	userRoutes := api.Group("/users")

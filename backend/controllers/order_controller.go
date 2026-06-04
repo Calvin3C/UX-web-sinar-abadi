@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"strings"
 	"sinar-abadi-backend/config"
 	"sinar-abadi-backend/models"
 	"sinar-abadi-backend/services"
@@ -27,6 +28,8 @@ type CheckoutInput struct {
 	Address        string              `json:"address" binding:"required"`
 	ShippingMethod string              `json:"shippingMethod" binding:"required"`
 	PaymentMethod  string              `json:"paymentMethod" binding:"required"` // Virtual Account, Credit Card
+	BiteshipAreaID string              `json:"biteshipAreaId"`                   // Can be empty for store pickup
+	ShippingCost   int64               `json:"shippingCost"`                     // Provided by frontend from Biteship
 	Items          []CheckoutItemInput `json:"items" binding:"required,min=1"`
 	Total          int64               `json:"total" binding:"required"` // Total product cost
 }
@@ -119,12 +122,16 @@ func CreateOrder(c *gin.Context) {
 	logisticsSvc := services.NewLogisticsService()
 	paymentSvc := services.NewPaymentService()
 
-	// Calculate shipping cost
-	shippingCost, err := logisticsSvc.CalculateShippingCost(input.ShippingMethod, input.Address, orderItems)
-	if err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	// We trust the frontend shippingCost if it's Biteship, otherwise calculate standard
+	shippingCost := input.ShippingCost
+	if input.BiteshipAreaID == "" && input.ShippingMethod != "Ambil Di Toko" && input.ShippingMethod != "Kurir Toko Sinar Abadi" {
+		var err error
+		shippingCost, err = logisticsSvc.CalculateShippingCost(input.ShippingMethod, input.Address, orderItems)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	order := models.Order{
@@ -155,6 +162,7 @@ func CreateOrder(c *gin.Context) {
 		TrackingNumber:     input.Phone, // Use Phone as WhatsApp tracking number
 		ShippingCost:       shippingCost,
 		DestinationAddress: input.Address,
+		BiteshipAreaID:     input.BiteshipAreaID,
 	}
 
 	if result := tx.Create(&shipping); result.Error != nil {
@@ -164,7 +172,7 @@ func CreateOrder(c *gin.Context) {
 	}
 
 	// Initiate Payment
-	_, err = paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total)
+	_, err := paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -274,6 +282,51 @@ func UpdateOrderStatus(c *gin.Context) {
 	}
 
 	config.DB.Model(&order).Updates(updates)
+
+	// If payment is successful, create an order in Biteship
+	if input.Status == "success" {
+		var shipping models.Shipping
+		if err := config.DB.Where("order_id = ?", order.ID).First(&shipping).Error; err == nil {
+			// Check if shipping method uses Biteship
+			if shipping.BiteshipAreaID != "" && !strings.Contains(shipping.ShippingMethodName, "Ambil Di Toko") && !strings.Contains(shipping.ShippingMethodName, "Kurir Toko Sinar Abadi") {
+				
+				// Parse courier details (e.g. "JNE REG")
+				parts := strings.SplitN(shipping.ShippingMethodName, " ", 2)
+				courierCompany := strings.ToLower(parts[0])
+				courierType := ""
+				if len(parts) > 1 {
+					courierType = strings.ToLower(parts[1])
+				}
+
+				// Build Items
+				var bItems []map[string]interface{}
+				config.DB.Preload("Items").First(&order, "id = ?", order.ID)
+				for _, it := range order.Items {
+					bItems = append(bItems, map[string]interface{}{
+						"name":  it.Name,
+						"value": it.Price,
+						"quantity": it.Qty,
+						"weight": 2000, // mock weight
+					})
+				}
+
+				originAreaID := "IDNP11IDNC250IDND2604IDZ65181" // Hardcoded Dampit area
+				_, err := services.CreateOrder(
+					order.ID,
+					originAreaID,
+					shipping.BiteshipAreaID,
+					courierCompany,
+					courierType,
+					bItems,
+				)
+				if err == nil {
+					// Update tracking status
+					config.DB.Model(&shipping).Update("status", "placed")
+					config.DB.Model(&order).Update("shipping_status", "Kurir Sedang Dijadwalkan")
+				}
+			}
+		}
+	}
 
 	// Reload for response
 	config.DB.Preload("Items").First(&order, "id = ?", order.ID)
