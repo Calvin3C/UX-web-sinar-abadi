@@ -34,7 +34,7 @@ func main() {
 		&models.StockLog{},
 		&models.Order{},
 		&models.OrderItem{},
-		&models.PaymentMethod{},
+
 		&models.Shipping{},
 		&models.Payment{},
 		&models.CustomerAddress{},

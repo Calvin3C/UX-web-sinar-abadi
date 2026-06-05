@@ -28,9 +28,9 @@ func main() {
 		&models.StockLog{},
 		&models.Order{},
 		&models.OrderItem{},
-		&models.PaymentMethod{},
 		&models.Shipping{},
 		&models.Payment{},
+		&models.CustomerAddress{},
 	)
 	if err != nil {
 		log.Printf("Error dropping tables: %v", err)
@@ -45,9 +45,9 @@ func main() {
 		&models.StockLog{},
 		&models.Order{},
 		&models.OrderItem{},
-		&models.PaymentMethod{},
 		&models.Shipping{},
 		&models.Payment{},
+		&models.CustomerAddress{},
 	)
 	if err != nil {
 		log.Printf("Error migrating: %v", err)

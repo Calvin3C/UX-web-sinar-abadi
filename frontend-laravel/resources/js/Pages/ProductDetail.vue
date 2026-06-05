@@ -159,7 +159,7 @@ const getWeight = () => {
 
 const getWaLink = () => {
     const text = `Halo CS Sinar Abadi, saya mau bertanya tentang produk ${props.product.name}`;
-    return `https://wa.me/6281234567890?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/6281945122202?text=${encodeURIComponent(text)}`;
 };
 
 const currentColors = computed(() => {
@@ -256,7 +256,7 @@ const selectedColor = ref(currentColors.value.length > 0 ? currentColors.value[0
             <div class="breadcrumb">
                 <Link href="/">Beranda</Link> &gt; 
                 <Link href="/katalog">Katalog</Link> &gt; 
-                <Link :href="`/katalog?category=${product.category}`">{{ product.category }}</Link> &gt; 
+                <Link :href="`/katalog?category=${encodeURIComponent(product.category)}`">{{ product.category }}</Link> &gt; 
                 <span>{{ product.name }}</span>
             </div>
 

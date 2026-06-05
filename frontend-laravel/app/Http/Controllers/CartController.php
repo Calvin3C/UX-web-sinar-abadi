@@ -214,8 +214,8 @@ class CartController extends Controller
         $bankAccounts = [
             [
                 'name' => 'BCA',
-                'number' => '012-345-6789',
-                'owner' => 'Sinar Abadi Utama'
+                'number' => '1240345109',
+                'owner' => 'Duvaltina Prihatini'
             ],
         ];
 

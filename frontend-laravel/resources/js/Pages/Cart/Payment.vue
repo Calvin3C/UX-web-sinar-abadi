@@ -55,8 +55,45 @@ const checkoutForm = useForm({
     courier_service_code: '',
 });
 
+const isDragging = ref(false);
+const proofPreview = ref(null);
+const fileInputRef = ref(null);
+
 const handleProofUpload = (e) => {
-    checkoutForm.proof = e.target.files[0];
+    const file = e.target.files[0];
+    if (file) {
+        checkoutForm.proof = file;
+        proofPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const handleDrop = (e) => {
+    e.preventDefault();
+    isDragging.value = false;
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+        checkoutForm.proof = file;
+        proofPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const handleDragOver = (e) => {
+    e.preventDefault();
+    isDragging.value = true;
+};
+
+const handleDragLeave = () => {
+    isDragging.value = false;
+};
+
+const triggerFileInput = () => {
+    fileInputRef.value?.click();
+};
+
+const removeProof = () => {
+    checkoutForm.proof = null;
+    proofPreview.value = null;
+    if (fileInputRef.value) fileInputRef.value.value = '';
 };
 
 // Watch for changes in selectedAddress to update checkout form
@@ -172,7 +209,9 @@ const addressForm = useForm({
     address: '',
     catatan: '',
     isMain: false,
+    pinpoint: false,
     biteshipAreaId: '',
+    postalCode: '',
 });
 
 const areaSearchQuery = ref('');
@@ -207,34 +246,56 @@ watch(areaSearchQuery, (newVal) => {
 const selectArea = (area) => {
     addressForm.biteshipAreaId = area.id;
     addressForm.kota = area.name;
+    addressForm.postalCode = area.postal_code || '';
     areaSearchQuery.value = `${area.name}, ${area.administrative_division_level_2_name}, ${area.administrative_division_level_1_name} ${area.postal_code}`;
     areaSearchResults.value = [];
 };
 
 // Update Address from Payment.vue
-const saveEditAddress = () => {
-    const payload = {
-        label: addressForm.label,
-        name: addressForm.name,
-        phone: addressForm.phone,
-        kota: addressForm.kota,
-        address: addressForm.address,
-        catatan: addressForm.catatan,
-        isMain: addressForm.isMain,
-        biteshipAreaId: addressForm.biteshipAreaId,
-    };
+const saveEditAddress = async () => {
+    try {
+        const payload = {
+            label: addressForm.label,
+            name: addressForm.name,
+            phone: addressForm.phone,
+            kota: addressForm.kota,
+            address: addressForm.address,
+            catatan: addressForm.catatan,
+            isMain: addressForm.isMain,
+            pinpoint: addressForm.pinpoint,
+            biteshipAreaId: addressForm.biteshipAreaId,
+            postalCode: String(addressForm.postalCode),
+        };
 
-    if (addressForm.id === null) {
-        addAddress(payload);
-    } else {
-        updateAddress(addressForm.id, payload);
-    }
-    isEditAddressModalOpen.value = false;
-    
-    // Refresh selected address if it was the one edited
-    if (selectedAddress.value.id === addressForm.id) {
-        const updated = mockAddresses.value.find(a => a.id === addressForm.id);
-        if (updated) selectAddress(updated);
+        let result = false;
+        if (addressForm.id === null) {
+            result = await addAddress(payload);
+        } else {
+            result = await updateAddress(addressForm.id, payload);
+        }
+        
+        if (result === true) {
+            isEditAddressModalOpen.value = false;
+            if (addressForm.id === null) {
+                // Automatically select the newly created address if it's the only one
+                if (mockAddresses.value.length === 1) {
+                    selectAddress(mockAddresses.value[0]);
+                } else {
+                    // Otherwise find the one we just added (usually the last one)
+                    selectAddress(mockAddresses.value[mockAddresses.value.length - 1]);
+                }
+            }
+            // Refresh selected address if it was the one edited
+            if (selectedAddress.value.id === addressForm.id) {
+                const updated = mockAddresses.value.find(a => a.id === addressForm.id);
+                if (updated) selectAddress(updated);
+            }
+        } else {
+            alert("Gagal menyimpan alamat di server. Pesan error:\n" + result);
+        }
+    } catch (err) {
+        alert("Terjadi kesalahan pada sistem: " + err.message);
+        console.error(err);
     }
 };
 
@@ -245,7 +306,9 @@ const openAddAddressModal = () => {
     addressForm.address = '';
     addressForm.catatan = '';
     addressForm.isMain = false;
+    addressForm.pinpoint = false;
     addressForm.biteshipAreaId = '';
+    addressForm.postalCode = '';
     areaSearchQuery.value = '';
     addressForm.name = props.user?.name || '';
     addressForm.phone = props.user?.phone || '';
@@ -261,7 +324,9 @@ const openEditAddress = (addr) => {
     addressForm.address = addr.address;
     addressForm.catatan = addr.catatan || '';
     addressForm.isMain = addr.isMain || false;
+    addressForm.pinpoint = addr.pinpoint || false;
     addressForm.biteshipAreaId = addr.biteshipAreaId || '';
+    addressForm.postalCode = addr.postalCode || '';
     areaSearchQuery.value = addr.kota || '';
     isEditAddressModalOpen.value = true;
 };
@@ -429,7 +494,7 @@ const handleCheckout = () => {
                                         ></div>
                                     </div>
                                     <span style="font-size: 14px; font-weight: 600; color: #1e293b;">
-                                        Transfer Bank ({{ bank.name }})
+                                        Transfer Bank ({{ bank.name }}) <span style="font-size: 12px; font-weight: 500; color: #64748b;">(Verifikasi Manual)</span>
                                     </span>
                                 </div>
 
@@ -452,13 +517,55 @@ const handleCheckout = () => {
                             
                             <div style="margin-top: 16px; margin-bottom: 16px;">
                                 <label style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 8px;">Upload Bukti Transfer</label>
+                                
+                                <!-- Hidden file input -->
                                 <input 
+                                    ref="fileInputRef"
                                     type="file" 
                                     accept="image/*"
                                     @change="handleProofUpload"
-                                    style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;"
-                                    required
+                                    style="display: none;"
                                 >
+
+                                <!-- Drop zone -->
+                                <div 
+                                    v-if="!proofPreview"
+                                    @click="triggerFileInput"
+                                    @drop="handleDrop"
+                                    @dragover="handleDragOver"
+                                    @dragleave="handleDragLeave"
+                                    :style="{
+                                        border: isDragging ? '2px dashed #3b82f6' : '2px dashed #cbd5e1',
+                                        borderRadius: '12px',
+                                        padding: '32px 16px',
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                        background: isDragging ? '#eff6ff' : '#f8fafc',
+                                        transition: 'all 0.25s ease',
+                                    }"
+                                >
+                                    <!-- Cloud Upload Icon -->
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 12px; display: block;">
+                                        <path d="M16.5 18.5h-9a5 5 0 0 1-.42-9.98A7 7 0 0 1 20 9a4.5 4.5 0 0 1-0.5 8.97"></path>
+                                        <polyline points="12 13 12 21"></polyline>
+                                        <polyline points="9 16 12 13 15 16"></polyline>
+                                    </svg>
+                                    <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 4px;">Klik atau seret file ke sini</div>
+                                    <div style="font-size: 12px; color: #94a3b8;">Format: JPG, PNG, JPEG (Maks. 4MB)</div>
+                                </div>
+
+                                <!-- Preview -->
+                                <div v-else style="position: relative; border: 2px solid #10b981; border-radius: 12px; padding: 12px; background: #f0fdf4; text-align: center;">
+                                    <img :src="proofPreview" alt="Preview bukti transfer" style="max-height: 200px; max-width: 100%; border-radius: 8px; object-fit: contain;" />
+                                    <div style="margin-top: 8px; font-size: 13px; color: #059669; font-weight: 600;">{{ checkoutForm.proof?.name }}</div>
+                                    <button 
+                                        @click.prevent="removeProof" 
+                                        style="position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; background: #dc2626; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    </button>
+                                </div>
+
                                 <div style="font-size: 11px; color: #dc2626; margin-top: 4px;" v-if="checkoutForm.errors.proof">
                                     {{ checkoutForm.errors.proof }}
                                 </div>

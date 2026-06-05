@@ -16,7 +16,7 @@ import (
 // RegisterInput represents the request body for customer/admin/owner registration.
 type RegisterInput struct {
 	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Password string `json:"password" binding:"required,min=5"`
 	Role     string `json:"role" binding:"required"` // customer | admin | owner
 	Name     string `json:"name"`
 	Phone    string `json:"phone"`
@@ -155,7 +155,7 @@ func Login(c *gin.Context) {
 	switch input.Role {
 	case "customer":
 		var user models.Customer
-		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+		if result := config.DB.Where("username = ? OR email = ?", input.Username, input.Username).First(&user); result.Error != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
 			return
 		}

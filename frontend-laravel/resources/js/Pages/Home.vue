@@ -116,7 +116,7 @@ onUnmounted(() => stopAutoplay());
                         <Link 
                             v-for="cat in categories" 
                             :key="cat" 
-                            :href="`/katalog?category=${cat}`" 
+                            :href="`/katalog?category=${encodeURIComponent(cat)}`" 
                             class="category-card"
                         >
                             <div class="category-icon">

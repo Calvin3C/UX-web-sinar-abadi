@@ -14,6 +14,7 @@ func RunSeeder(db *gorm.DB) {
 	seedUsers(db)
 	seedProducts(db)
 	seedOrders(db)
+	seedAddresses(db)
 }
 
 // ---- CUSTOMERS, ADMINS, OWNERS ----
@@ -344,4 +345,44 @@ func seedOrders(db *gorm.DB) {
 		db.Create(&o)
 	}
 	log.Println("✅ Seeded 2 sample orders")
+}
+
+// ---- CUSTOMER ADDRESSES ----
+func seedAddresses(db *gorm.DB) {
+	var count int64
+	db.Model(&models.CustomerAddress{}).Count(&count)
+	if count > 0 {
+		log.Println("⏭️  Customer addresses table already seeded, skipping...")
+		return
+	}
+
+	// Get budi's customer ID
+	var budi models.Customer
+	if result := db.Where("username = ?", "budi").First(&budi); result.Error != nil {
+		log.Println("⚠️  Could not find user 'budi' for address seeding")
+		return
+	}
+
+	addresses := []models.CustomerAddress{
+		{
+			CustomerID:     budi.ID,
+			Label:          "Kantor Sinar Abadi",
+			RecipientName:  "Budi Santoso",
+			PhoneNumber:    "08123456789",
+			City:           "Lowokwaru, Kota Malang, Jawa Timur",
+			FullAddress:    "Jl. Letjen Sutoyo No. 12, Lowokwaru, Malang, Jawa Timur 65141",
+			Notes:          "",
+			PostalCode:     "65141",
+			BiteshipAreaID: "IDNP11IDNC250IDND2612IDZ65141",
+			IsPrimary:      true,
+			Pinpoint:       false,
+		},
+	}
+
+	for _, a := range addresses {
+		if err := db.Create(&a).Error; err != nil {
+			log.Printf("⚠️  Failed to seed address: %v", err)
+		}
+	}
+	log.Printf("✅ Seeded %d customer addresses\n", len(addresses))
 }

@@ -17,6 +17,7 @@ const registerForm = useForm({
     name: '',
     username: '',
     password: '',
+    password_confirmation: '',
     phone: '',
     email: '',
     gender: 'Laki-laki',
@@ -45,7 +46,23 @@ const handleLogin = () => {
 };
 
 const handleRegister = () => {
-    registerForm.post('/register', {
+    registerForm.transform((data) => {
+        let phone = data.phone;
+        if (data.role === 'customer' && phone) {
+            // Remove leading zero if user accidentally typed it
+            if (phone.startsWith('0')) {
+                phone = phone.substring(1);
+            }
+            // Only prepend +62 if not already starting with +62
+            if (!phone.startsWith('+62')) {
+                phone = '+62' + phone;
+            }
+        }
+        return {
+            ...data,
+            phone: phone
+        };
+    }).post('/register', {
         onSuccess: () => {
             mode.value = 'login';
             registerForm.reset();
@@ -95,11 +112,11 @@ const handleRegister = () => {
 
                             <form @submit.prevent="handleLogin" id="login-form">
                                 <div class="form-group">
-                                    <label class="form-label">Username</label>
+                                    <label class="form-label">{{ activeRole === 'customer' ? 'Email atau Username' : 'Username' }}</label>
                                     <input 
                                         type="text" 
                                         class="form-input" 
-                                        placeholder="Masukkan username"
+                                        :placeholder="activeRole === 'customer' ? 'Masukkan email atau username' : 'Masukkan username'"
                                         v-model="loginForm.username" 
                                         required
                                     >
@@ -183,14 +200,21 @@ const handleRegister = () => {
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="form-label">No Telfon</label>
-                                    <input 
-                                        type="tel" 
-                                        class="form-input" 
-                                        placeholder="Masukkan nomor telepon"
-                                        v-model="registerForm.phone"
-                                        required
-                                    >
+                                    <label class="form-label">No. Handphone Pengguna <span class="text-danger" style="color: #e11d48;">*</span></label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <div style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: #1e293b; font-size: 14px; display: flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; font-weight: 500;">
+                                            +62
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        </div>
+                                        <input 
+                                            type="tel" 
+                                            class="form-input" 
+                                            placeholder="eg, 871037262"
+                                            v-model="registerForm.phone"
+                                            style="flex: 1;"
+                                            required
+                                        >
+                                    </div>
                                     <div v-if="registerForm.errors.phone" class="text-danger mt-2" style="font-size: 13px;">
                                         {{ registerForm.errors.phone }}
                                     </div>
@@ -240,18 +264,31 @@ const handleRegister = () => {
                                     </div>
                                 </div>
 
-                                <div class="form-group mb-8">
+                                <div class="form-group mb-4">
                                     <label class="form-label">Kata Sandi</label>
                                     <input 
                                         type="password" 
                                         class="form-input" 
-                                        placeholder="Min. 3 karakter"
+                                        placeholder="Min. 5 karakter"
                                         v-model="registerForm.password"
+                                        minlength="5"
                                         required
                                     >
                                     <div v-if="registerForm.errors.password" class="text-danger mt-2" style="font-size: 13px;">
                                         {{ registerForm.errors.password }}
                                     </div>
+                                </div>
+
+                                <div class="form-group mb-8">
+                                    <label class="form-label">Konfirmasi Kata Sandi</label>
+                                    <input 
+                                        type="password" 
+                                        class="form-input" 
+                                        placeholder="Ketik ulang kata sandi"
+                                        v-model="registerForm.password_confirmation"
+                                        minlength="5"
+                                        required
+                                    >
                                 </div>
 
                                 <button 

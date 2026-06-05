@@ -95,6 +95,7 @@ const openAddAddressModal = () => {
     addressForm.isMain = false;
     addressForm.pinpoint = false;
     addressForm.biteshipAreaId = '';
+    addressForm.postalCode = '';
     areaSearchQuery.value = '';
     areaSearchResults.value = [];
     addressForm.name = props.user?.name || '';
@@ -114,12 +115,13 @@ const openEditAddressModal = (addr) => {
     addressForm.isMain = addr.isMain;
     addressForm.pinpoint = addr.pinpoint;
     addressForm.biteshipAreaId = addr.biteshipAreaId || '';
+    addressForm.postalCode = addr.postalCode || '';
     areaSearchQuery.value = addr.kota || '';
     areaSearchResults.value = [];
     isAddressFormModalOpen.value = true;
 };
 
-const saveAddress = () => {
+const saveAddress = async () => {
     const data = {
         label: addressForm.label,
         name: addressForm.name,
@@ -130,15 +132,19 @@ const saveAddress = () => {
         isMain: addressForm.isMain,
         pinpoint: addressForm.pinpoint,
         biteshipAreaId: addressForm.biteshipAreaId,
-        postalCode: addressForm.postalCode,
+        postalCode: String(addressForm.postalCode),
     };
 
+    let success = false;
     if (addressFormMode.value === 'add') {
-        addAddress(data);
+        success = await addAddress(data);
     } else {
-        updateAddress(addressForm.id, data);
+        success = await updateAddress(addressForm.id, data);
     }
-    isAddressFormModalOpen.value = false;
+    
+    if (success) {
+        isAddressFormModalOpen.value = false;
+    }
 };
 
 // Split orders into active vs completed

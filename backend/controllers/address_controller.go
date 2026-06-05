@@ -11,7 +11,7 @@ import (
 
 // GetCustomerAddresses returns all addresses for the logged-in customer
 func GetCustomerAddresses(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("userId")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -28,20 +28,23 @@ func GetCustomerAddresses(c *gin.Context) {
 
 // CreateCustomerAddress adds a new address for the logged-in customer
 func CreateCustomerAddress(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("userId")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
 	var req struct {
-		Title          string `json:"title" binding:"required"`
-		RecipientName  string `json:"recipientName" binding:"required"`
-		PhoneNumber    string `json:"phoneNumber" binding:"required"`
-		FullAddress    string `json:"fullAddress" binding:"required"`
+		Label          string `json:"label" binding:"required"`
+		RecipientName  string `json:"name" binding:"required"`
+		PhoneNumber    string `json:"phone" binding:"required"`
+		City           string `json:"kota"`
+		FullAddress    string `json:"address" binding:"required"`
+		Notes          string `json:"catatan"`
 		PostalCode     string `json:"postalCode"`
-		BiteshipAreaID string `json:"biteshipAreaId" binding:"required"`
-		IsPrimary      bool   `json:"isPrimary"`
+		BiteshipAreaID string `json:"biteshipAreaId"`
+		IsPrimary      bool   `json:"isMain"`
+		Pinpoint       bool   `json:"pinpoint"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,13 +59,16 @@ func CreateCustomerAddress(c *gin.Context) {
 
 	address := models.CustomerAddress{
 		CustomerID:     userID.(uint),
-		Title:          req.Title,
+		Label:          req.Label,
 		RecipientName:  req.RecipientName,
 		PhoneNumber:    req.PhoneNumber,
+		City:           req.City,
 		FullAddress:    req.FullAddress,
+		Notes:          req.Notes,
 		PostalCode:     req.PostalCode,
 		BiteshipAreaID: req.BiteshipAreaID,
 		IsPrimary:      req.IsPrimary,
+		Pinpoint:       req.Pinpoint,
 	}
 
 	if err := config.DB.Create(&address).Error; err != nil {
@@ -83,7 +89,7 @@ func CreateCustomerAddress(c *gin.Context) {
 
 // UpdateCustomerAddress updates an existing address
 func UpdateCustomerAddress(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("userId")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -97,13 +103,16 @@ func UpdateCustomerAddress(c *gin.Context) {
 	}
 
 	var req struct {
-		Title          string `json:"title"`
-		RecipientName  string `json:"recipientName"`
-		PhoneNumber    string `json:"phoneNumber"`
-		FullAddress    string `json:"fullAddress"`
+		Label          string `json:"label"`
+		RecipientName  string `json:"name"`
+		PhoneNumber    string `json:"phone"`
+		City           string `json:"kota"`
+		FullAddress    string `json:"address"`
+		Notes          string `json:"catatan"`
 		PostalCode     string `json:"postalCode"`
 		BiteshipAreaID string `json:"biteshipAreaId"`
-		IsPrimary      bool   `json:"isPrimary"`
+		IsPrimary      bool   `json:"isMain"`
+		Pinpoint       bool   `json:"pinpoint"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -116,13 +125,16 @@ func UpdateCustomerAddress(c *gin.Context) {
 	}
 
 	// Update fields
-	if req.Title != "" { address.Title = req.Title }
+	if req.Label != "" { address.Label = req.Label }
 	if req.RecipientName != "" { address.RecipientName = req.RecipientName }
 	if req.PhoneNumber != "" { address.PhoneNumber = req.PhoneNumber }
+	if req.City != "" { address.City = req.City }
 	if req.FullAddress != "" { address.FullAddress = req.FullAddress }
+	if req.Notes != "" { address.Notes = req.Notes }
 	if req.PostalCode != "" { address.PostalCode = req.PostalCode }
 	if req.BiteshipAreaID != "" { address.BiteshipAreaID = req.BiteshipAreaID }
-	if req.IsPrimary { address.IsPrimary = req.IsPrimary }
+	address.IsPrimary = req.IsPrimary
+	address.Pinpoint = req.Pinpoint
 
 	if err := config.DB.Save(&address).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update address"})
@@ -134,7 +146,7 @@ func UpdateCustomerAddress(c *gin.Context) {
 
 // DeleteCustomerAddress deletes an address
 func DeleteCustomerAddress(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("userId")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return

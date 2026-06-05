@@ -72,7 +72,7 @@ class AuthController extends Controller
         
         $rules = [
             'username' => 'required|string|min:3',
-            'password' => 'required|string|min:3',
+            'password' => 'required|string|min:5|confirmed',
             'role'     => 'required|in:customer,admin,owner',
         ];
 

@@ -486,15 +486,15 @@ func UploadProof(c *gin.Context) {
 func CompleteOrderCustomer(c *gin.Context) {
 	orderID := c.Param("id")
 	
-	// Get username from token/middleware
-	username, exists := c.Get("username")
+	// Get userId from token/middleware
+	userID, exists := c.Get("userId")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
 	var order models.Order
-	if result := config.DB.Where("id = ? AND customer_name = ?", orderID, username).First(&order); result.Error != nil {
+	if result := config.DB.Where("id = ? AND customer_id = ?", orderID, userID).First(&order); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pesanan tidak ditemukan atau Anda tidak memiliki akses"})
 		return
 	}
