@@ -152,7 +152,7 @@ const handleRegister = () => {
                                 </button>
                             </form>
 
-                            <div class="text-center mt-8 text-muted" style="font-size:14px;">
+                            <div v-if="activeRole === 'customer'" class="text-center mt-8 text-muted" style="font-size:14px;">
                                 Pelanggan baru? <a href="javascript:void(0)" @click="toggleAuthMode">Buat Akun Customer</a>
                             </div>
                         </div>
@@ -174,13 +174,7 @@ const handleRegister = () => {
                                 >
                                     Admin
                                 </div>
-                                <div 
-                                    class="role-tab" 
-                                    :class="{ active: activeRegisterRole === 'owner' }" 
-                                    @click="switchRegisterRole('owner')"
-                                >
-                                    Owner
-                                </div>
+
                             </div>
 
                             <form @submit.prevent="handleRegister">

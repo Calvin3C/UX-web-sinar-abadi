@@ -364,6 +364,13 @@ const grandTotal = computed(() => {
 });
 
 const handleCheckout = () => {
+    if (checkoutForm.courier === 'Kurir Toko Sinar Abadi') {
+        if (!checkoutForm.address.toLowerCase().includes('malang')) {
+            alert('Pengiriman Kurir Toko Sinar Abadi hanya berlaku untuk area Malang. Silakan gunakan metode pengiriman lain atau ubah alamat Anda.');
+            return;
+        }
+    }
+
     if (!confirm('Pastikan alamat pengiriman sudah benar dan kurir pengiriman sudah sesuai.')) {
         return;
     }
@@ -439,6 +446,9 @@ const handleCheckout = () => {
                             <template v-else-if="checkoutForm.courier === 'Kurir Toko Sinar Abadi'">
                                 <div style="font-weight: 700; font-size: 14px; color: #0f172a;">Kurir Toko Sinar Abadi</div>
                                 <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Dikirim oleh armada toko kami.</div>
+                                <div v-if="!checkoutForm.address.toLowerCase().includes('malang')" style="font-size: 13px; color: #dc2626; margin-top: 8px; font-weight: 600;">
+                                    * Metode pengiriman ini hanya tersedia untuk area Malang (Kota/Kabupaten).
+                                </div>
                             </template>
                             <template v-else>
                                 <div v-if="isFetchingRates" style="font-size: 13px; color: #64748b; padding: 12px; text-align: center;">
@@ -579,8 +589,8 @@ const handleCheckout = () => {
                                     type="submit" 
                                     class="btn w-100" 
                                     style="background: #0f172a; color: white; font-size:14px; padding:16px; font-weight: 700; border-radius: 6px;"
-                                    :disabled="checkoutForm.processing || !checkoutForm.proof || (activeTab === 'semua' && !selectedRate)"
-                                    :style="(!checkoutForm.proof || (activeTab === 'semua' && !selectedRate)) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
+                                    :disabled="checkoutForm.processing || !checkoutForm.proof || (activeTab === 'semua' && !selectedRate) || (checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang'))"
+                                    :style="(!checkoutForm.proof || (activeTab === 'semua' && !selectedRate) || (checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang'))) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
                                 >
                                     <span v-if="checkoutForm.processing">MEMBUAT PESANAN...</span>
                                     <span v-else>BAYAR SEKARANG</span>
@@ -659,7 +669,7 @@ const handleCheckout = () => {
                         style="flex: 1; text-align: center; padding: 12px 0; font-size: 14px; cursor: pointer;"
                         :style="activeTab === 'semua' ? 'font-weight: 700; color: #e11d48; border-bottom: 2px solid #e11d48;' : 'font-weight: 600; color: #64748b;'"
                     >
-                        Semua Alamat
+                        Ekspedisi (JNE, J&T, dan SiCepat)
                     </div>
                     <div 
                         @click="activeTab = 'ambil'"
@@ -718,8 +728,6 @@ const handleCheckout = () => {
                             </div>
 
                             <div class="d-flex align-center gap-4">
-                                <span style="font-size: 13px; font-weight: 700; color: #e11d48;">Share</span>
-                                <div style="width: 1px; height: 12px; background: #cbd5e1;"></div>
                                 <span @click.stop="openEditAddress(addr)" style="font-size: 13px; font-weight: 700; color: #e11d48;">Ubah Alamat</span>
                             </div>
 

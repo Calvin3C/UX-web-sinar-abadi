@@ -173,6 +173,12 @@ func CreateOrder(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+	} else if input.ShippingMethod == "Kurir Toko Sinar Abadi" {
+		if !strings.Contains(strings.ToLower(input.Address), "malang") {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pengiriman Kurir Toko Sinar Abadi hanya berlaku untuk area Malang"})
+			return
+		}
 	}
 
 	order := models.Order{

@@ -389,8 +389,6 @@ const handleUploadProof = () => {
                             </div>
 
                             <div class="d-flex align-center gap-4">
-                                <span style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Share</span>
-                                <div style="width: 1px; height: 14px; background: #cbd5e1;"></div>
                                 <span @click="openEditAddressModal(addr)" style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Ubah Alamat</span>
                                 <div v-if="!addr.isMain" style="width: 1px; height: 14px; background: #cbd5e1;"></div>
                                 <span v-if="!addr.isMain" @click="setMainAddress(addr.id)" style="font-size: 14px; font-weight: 700; color: #e11d48; cursor: pointer;">Jadikan Utama</span>

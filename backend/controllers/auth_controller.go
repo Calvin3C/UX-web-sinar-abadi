@@ -111,28 +111,7 @@ func Register(c *gin.Context) {
 			},
 		})
 
-	case "owner":
-		name := input.Name
-		if name == "" {
-			name = "Owner " + input.Username
-		}
-		owner := models.Owner{
-			Username:  input.Username,
-			Password:  string(hashedPassword),
-			Name:      name,
-		}
-		if result := config.DB.Create(&owner); result.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun owner"})
-			return
-		}
-		c.JSON(http.StatusCreated, gin.H{
-			"message": "Akun owner berhasil terdaftar",
-			"user": gin.H{
-				"username": owner.Username,
-				"role":     "owner",
-				"name":     owner.Name,
-			},
-		})
+
 
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Role tidak valid"})
