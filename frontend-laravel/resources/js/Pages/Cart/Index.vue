@@ -88,7 +88,7 @@ const removeItem = (id) => {
                                     <div class="cart-item-price">{{ formatPrice(item.price) }}</div>
                                     <div class="d-flex justify-between align-center mt-2">
                                         <div class="qty-controls">
-                                            <button @click="updateQty(item.cartKey || item.id, item.qty - 1)" class="qty-btn">-</button>
+                                            <button @click="updateQty(item.cartKey || item.id, item.qty - 1)" class="qty-btn" :disabled="item.qty <= (item.minPurchase || 1)">-</button>
                                             <input type="text" :value="item.qty" class="qty-input" readonly>
                                             <button @click="updateQty(item.cartKey || item.id, item.qty + 1)" class="qty-btn">+</button>
                                         </div>

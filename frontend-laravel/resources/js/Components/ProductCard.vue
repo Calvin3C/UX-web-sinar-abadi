@@ -45,6 +45,7 @@ const handleAddToCart = () => {
         height: props.product.height || 1,
         stock: props.product.stock,
         qty: quantity.value,
+        minPurchase: props.product.minPurchase || 1,
     }, {
         preserveScroll: true,
         onSuccess: () => {

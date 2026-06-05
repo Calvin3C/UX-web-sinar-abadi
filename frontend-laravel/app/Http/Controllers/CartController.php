@@ -52,6 +52,7 @@ class CartController extends Controller
             'width'   => 'nullable|numeric',
             'height'  => 'nullable|numeric',
             'qty'     => 'nullable|numeric|min:1',
+            'minPurchase' => 'nullable|numeric|min:1',
             'color'   => 'nullable|string',
         ]);
 
@@ -86,6 +87,7 @@ class CartController extends Controller
                 'height'  => (int) $request->input('height', 1),
                 'stock'   => (int) $request->input('stock', 0),
                 'qty'     => $requestedQty,
+                'minPurchase' => (int) $request->input('minPurchase', 1),
                 'color'   => $color,
             ];
         }
@@ -115,6 +117,10 @@ class CartController extends Controller
         if ($qty <= 0) {
             unset($cart[$productId]);
         } elseif (isset($cart[$productId])) {
+            $minPurchase = $cart[$productId]['minPurchase'] ?? 1;
+            if ($qty < $minPurchase) {
+                return back()->with('error', "Minimal pembelian adalah {$minPurchase}.");
+            }
             // Check stock
             $stockLimit = $cart[$productId]['stock'];
             if ($qty > $stockLimit) {
