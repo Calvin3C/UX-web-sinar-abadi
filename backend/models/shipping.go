@@ -6,9 +6,9 @@ import "time"
 type Shipping struct {
 	ID                 uint      `gorm:"primaryKey" json:"id"`
 	OrderID            string    `gorm:"size:30;not null;uniqueIndex" json:"orderId"`
-	AdminID            *uint     `json:"adminId"` // Tracks which admin dispatched/handled this shipment
-	Admin              *Admin    `gorm:"foreignKey:AdminID" json:"-"`
+	ShippingMethodID   uint      `json:"shippingMethodId"`
 	ShippingMethodName string    `gorm:"size:100;not null" json:"shippingMethodName"` // Ambil di Toko, Kurir Toko Sinar Abadi, Ekspedisi JNE
+	AdminID            *uint     `json:"adminId"` // References Admin who processed the shipment
 	TrackingNumber     string    `gorm:"size:30" json:"trackingNumber"`               // Used for WhatsApp number
 	ShippingCost       int64     `gorm:"not null;default:0" json:"shippingCost"`
 	DestinationAddress string    `gorm:"type:text;not null" json:"destinationAddress"`
