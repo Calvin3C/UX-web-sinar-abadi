@@ -24,10 +24,14 @@ class CustomerController extends Controller
         $result = $this->api->getOrders($token);
         $orders = $result['success'] ? $result['data'] : [];
 
+        $profileResult = $this->api->getProfile($token);
+        $profile = $profileResult['success'] ? $profileResult['data'] : null;
+
         return Inertia::render('Customer/Dashboard', [
             'orders' => $orders,
             'username' => session('auth_username', 'Customer'),
             'user' => session('auth_user', []),
+            'profile' => $profile,
         ]);
     }
 
@@ -137,5 +141,45 @@ class CustomerController extends Controller
         }
 
         return back()->with('success', 'Pesanan berhasil diselesaikan. Terima kasih!');
+    }
+
+    /**
+     * Update customer profile.
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'username' => 'required|string',
+            'email' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'password' => 'nullable|string|min:3',
+        ]);
+
+        $data = [
+            'name' => $request->input('name') ?? '',
+            'username' => $request->input('username') ?? '',
+            'email' => $request->input('email') ?? '',
+            'phone' => $request->input('phone') ?? '',
+            'gender' => $request->input('gender') ?? '',
+            'password' => $request->input('password') ?? '',
+        ];
+
+        $token = session('auth_token');
+        $result = $this->api->updateProfile($token, $data);
+
+        if (!$result['success']) {
+            \Illuminate\Support\Facades\Log::error('API Error Response:', $result);
+            $error = $result['data']['error'] ?? 'Gagal memperbarui profil.';
+            return back()->with('error', $error);
+        }
+
+        // Update session username if changed
+        if ($request->input('username') !== session('auth_username')) {
+            session(['auth_username' => $request->input('username')]);
+        }
+
+        return back()->with('success', 'Profil berhasil diperbarui.');
     }
 }

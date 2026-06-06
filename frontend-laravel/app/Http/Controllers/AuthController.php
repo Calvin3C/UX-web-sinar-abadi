@@ -15,15 +15,28 @@ class AuthController extends Controller
         $this->api = $api;
     }
 
-    /**
-     * Tampilkan halaman login/register.
-     */
-    public function showLogin()
+    public function showCustomerLogin()
     {
-        if (session('auth_token')) {
-            return $this->redirectByRole(session('auth_role'));
-        }
-        return Inertia::render('Auth/Login');
+        if (session('auth_token')) return $this->redirectByRole(session('auth_role'));
+        return Inertia::render('Auth/CustomerLogin');
+    }
+
+    public function showCustomerRegister()
+    {
+        if (session('auth_token')) return $this->redirectByRole(session('auth_role'));
+        return Inertia::render('Auth/CustomerRegister');
+    }
+
+    public function showAdminLogin()
+    {
+        if (session('auth_token')) return $this->redirectByRole(session('auth_role'));
+        return Inertia::render('Auth/AdminLogin');
+    }
+
+    public function showOwnerLogin()
+    {
+        if (session('auth_token')) return $this->redirectByRole(session('auth_role'));
+        return Inertia::render('Auth/OwnerLogin');
     }
 
     /**
@@ -103,9 +116,6 @@ class AuthController extends Controller
         return redirect()->route('login')->with('success', 'Akun berhasil terdaftar! Silakan login.');
     }
 
-    /**
-     * Logout — hapus session.
-     */
     public function logout()
     {
         $role = session('auth_role');
@@ -116,12 +126,13 @@ class AuthController extends Controller
             'cart',
         ]);
 
-        // Admin/Owner → redirect to login, Customer/Guest → redirect to home
-        if (in_array($role, ['admin', 'owner'])) {
-            return redirect()->route('login')->with('success', 'Anda telah keluar.');
+        if ($role === 'admin') {
+            return redirect()->route('admin.login')->with('success', 'Anda telah keluar.');
+        } elseif ($role === 'owner') {
+            return redirect()->route('owner.login')->with('success', 'Anda telah keluar.');
         }
 
-        return redirect()->route('home')->with('success', 'Anda telah keluar.');
+        return redirect()->route('login')->with('success', 'Anda telah keluar.');
     }
 
     /**

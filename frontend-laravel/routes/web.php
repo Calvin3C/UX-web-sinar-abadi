@@ -30,7 +30,11 @@ Route::get('/katalog', function (\Illuminate\Http\Request $request) {
 Route::get('/katalog/{id}', [CatalogController::class, 'show'])->name('katalog.show');
 
 // Auth
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::get('/login', [AuthController::class, 'showCustomerLogin'])->name('login');
+Route::get('/register', [AuthController::class, 'showCustomerRegister'])->name('register');
+Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
+Route::get('/owner/login', [AuthController::class, 'showOwnerLogin'])->name('owner.login');
+
 Route::post('/login', [AuthController::class, 'login'])->name('login.process');
 Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -55,6 +59,7 @@ Route::middleware('auth.api:customer')->group(function () {
 // =====================================================================
 Route::middleware('auth.api:customer')->prefix('customer')->name('customer.')->group(function () {
     Route::get('/dashboard', [CustomerController::class, 'dashboard'])->name('dashboard');
+    Route::put('/profile', [CustomerController::class, 'updateProfile'])->name('update-profile');
     Route::post('/orders/{id}/proof', [CustomerController::class, 'uploadProof'])->name('upload-proof');
     Route::put('/orders/{id}/complete', [CustomerController::class, 'completeOrder'])->name('complete-order');
     Route::get('/tracking', [CustomerController::class, 'trackOrder'])->name('tracking');
@@ -65,8 +70,8 @@ Route::middleware('auth.api:customer')->prefix('customer')->name('customer.')->g
 // =====================================================================
 Route::middleware('auth.api:admin')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
-    Route::put('/users/{username}/block', [AdminController::class, 'toggleBlock'])->name('toggle-block');
     Route::put('/orders/{id}/shipping', [AdminController::class, 'updateShipping'])->name('update-shipping');
+    Route::put('/profile', [AdminController::class, 'updateProfile'])->name('admin.profile.update');
 });
 
 // =====================================================================
@@ -77,6 +82,7 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
     Route::put('/orders/{id}/status', [OwnerController::class, 'updateStatus'])->name('update-status');
     Route::put('/products/{id}/stock', [OwnerController::class, 'updateStock'])->name('update-stock');
     Route::post('/admins', [OwnerController::class, 'createAdmin'])->name('create-admin');
+    Route::put('/admins/{username}', [OwnerController::class, 'updateAdmin'])->name('update-admin');
     Route::delete('/admins/{username}', [OwnerController::class, 'deleteAdmin'])->name('delete-admin');
 
     // Product CRUD
@@ -87,5 +93,7 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
 
     // Variants CRUD
     Route::post('/products/{id}/variants', [OwnerController::class, 'createVariant'])->name('products.variants.store');
-    Route::delete('/products/{id}/variants/{variantId}', [OwnerController::class, 'deleteVariant'])->name('products.variants.destroy');
+    Route::delete('/products/{productId}/variants/{variantId}', [OwnerController::class, 'deleteVariant'])->name('owner.variants.destroy');
+
+    Route::put('/profile', [OwnerController::class, 'updateProfile'])->name('owner.profile.update');
 });

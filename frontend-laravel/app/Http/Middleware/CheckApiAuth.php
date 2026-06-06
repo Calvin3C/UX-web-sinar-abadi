@@ -24,6 +24,12 @@ class CheckApiAuth
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Silakan login terlebih dahulu.'], 401);
             }
+            if (in_array('admin', $roles)) {
+                return redirect()->route('admin.login')->with('error', 'Silakan login terlebih dahulu.');
+            }
+            if (in_array('owner', $roles)) {
+                return redirect()->route('owner.login')->with('error', 'Silakan login terlebih dahulu.');
+            }
             return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu.');
         }
 

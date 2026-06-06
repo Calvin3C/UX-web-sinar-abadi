@@ -19,6 +19,15 @@ func RunSeeder(db *gorm.DB) {
 
 // ---- CUSTOMERS, ADMINS, OWNERS ----
 func seedUsers(db *gorm.DB) {
+	hashPw := func(pw string) string {
+		h, _ := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+		return string(h)
+	}
+
+	// Update existing admin and owner emails and passwords
+	db.Exec("UPDATE admins SET email = 'admin123@gmail.com', password = ? WHERE username = 'admin' AND (email IS NULL OR email = '')", hashPw("admin123"))
+	db.Exec("UPDATE owners SET email = 'prihatini.duvaltina@gmail.com', password = ? WHERE username = 'owner' AND (email IS NULL OR email = '')", hashPw("Anthony271205"))
+
 	var customerCount, adminCount, ownerCount int64
 	db.Model(&models.Customer{}).Count(&customerCount)
 	db.Model(&models.Admin{}).Count(&adminCount)
@@ -29,13 +38,8 @@ func seedUsers(db *gorm.DB) {
 		return
 	}
 
-	hashPw := func(pw string) string {
-		h, _ := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
-		return string(h)
-	}
-
 	customers := []models.Customer{
-		{Username: "budi", Password: hashPw("123"), Name: "Budi Santoso", IsBlocked: false},
+		{Username: "budi", Password: hashPw("123"), Name: "Budi Santoso"},
 	}
 	for _, c := range customers {
 		if err := db.Create(&c).Error; err != nil {
@@ -44,7 +48,7 @@ func seedUsers(db *gorm.DB) {
 	}
 
 	admins := []models.Admin{
-		{Username: "admin", Password: hashPw("admin123"), Name: "Admin Operasional", IsBlocked: false},
+		{Username: "admin", Email: "admin123@gmail.com", Password: hashPw("admin123"), Name: "Admin Operasional"},
 	}
 	for _, a := range admins {
 		if err := db.Create(&a).Error; err != nil {
@@ -53,7 +57,7 @@ func seedUsers(db *gorm.DB) {
 	}
 
 	owners := []models.Owner{
-		{Username: "owner", Password: hashPw("owner123"), Name: "Dewan Direksi"},
+		{Username: "owner", Email: "prihatini.duvaltina@gmail.com", Password: hashPw("Anthony271205"), Name: "Dewan Direksi"},
 	}
 	for _, o := range owners {
 		if err := db.Create(&o).Error; err != nil {

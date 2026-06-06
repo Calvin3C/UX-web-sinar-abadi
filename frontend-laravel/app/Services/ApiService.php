@@ -289,6 +289,36 @@ class ApiService
     // =====================================================================
 
     /**
+     * Get user profile.
+     */
+    public function getProfile(string $token): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/users/profile");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
+     * Update user profile.
+     */
+    public function updateProfile(string $token, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/users/profile", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
      * Get all customers (admin/owner).
      */
     public function getCustomers(string $token): array
@@ -303,20 +333,6 @@ class ApiService
         ];
     }
 
-    /**
-     * Toggle block status for a customer (admin).
-     */
-    public function toggleBlock(string $token, string $username): array
-    {
-        $response = Http::timeout(10)
-            ->withToken($token)
-            ->put("{$this->baseUrl}/users/{$username}/block");
-
-        return [
-            'success' => $response->successful(),
-            'data'    => $response->json(),
-        ];
-    }
 
     /**
      * Get all admins (owner).
@@ -341,6 +357,21 @@ class ApiService
         $response = Http::timeout(10)
             ->withToken($token)
             ->post("{$this->baseUrl}/users/admins", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    /**
+     * Update an admin (owner).
+     */
+    public function updateAdmin(string $token, string $username, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/users/admins/{$username}", $data);
 
         return [
             'success' => $response->successful(),

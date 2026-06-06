@@ -24,9 +24,13 @@ const props = defineProps({
         type: Object,
         default: () => ({ totalRevenue: 0, salesCount: 0, stockIssuesCount: 0, totalAdmins: 0 }),
     },
+    profile: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
-const activeTab = ref('products'); // 'products', 'orders', or 'admins'
+const activeTab = ref('dashboard'); // 'dashboard', 'products', 'validasi', 'histori', 'admins', or 'profile'
 const productFilter = ref('aktif'); // 'aktif' or 'habis'
 const searchQuery = ref('');
 const categoryFilter = ref('');
@@ -45,11 +49,31 @@ const newVariantForm = useForm({
 });
 
 
+const isCreateAdminModalOpen = ref(false);
 const newAdminForm = useForm({
     name: '',
     username: '',
+    email: '',
+    phone: '',
     password: '',
 });
+
+const profileForm = useForm({
+    name: props.profile?.name || '',
+    username: props.profile?.username || '',
+    email: props.profile?.email || '',
+    phone: props.profile?.phone || '',
+    password: '',
+});
+
+const saveProfile = () => {
+    profileForm.put('/owner/profile', {
+        preserveScroll: true,
+        onSuccess: () => {
+            profileForm.password = '';
+        }
+    });
+};
 
 const formatPrice = (price) => {
     return new Intl.NumberFormat('id-ID', {
@@ -252,7 +276,36 @@ const handleCreateAdmin = () => {
     newAdminForm.post('/owner/admins', {
         onSuccess: () => {
             newAdminForm.reset();
+            isCreateAdminModalOpen.value = false;
         },
+        preserveScroll: true,
+    });
+};
+
+const isEditAdminModalOpen = ref(false);
+const editAdminForm = useForm({
+    username: '',
+    name: '',
+    phone: '',
+    email: '',
+    password: '',
+});
+
+const openEditAdminModal = (admin) => {
+    editAdminForm.username = admin.username;
+    editAdminForm.name = admin.name;
+    editAdminForm.phone = admin.phone || '';
+    editAdminForm.email = admin.email || '';
+    editAdminForm.password = '';
+    isEditAdminModalOpen.value = true;
+};
+
+const handleUpdateAdmin = () => {
+    editAdminForm.put(`/owner/admins/${editAdminForm.username}`, {
+        onSuccess: () => {
+            isEditAdminModalOpen.value = false;
+        },
+        preserveScroll: true,
     });
 };
 
@@ -267,64 +320,145 @@ const handleDeleteAdmin = (adminUsername) => {
 
 <template>
     <AppLayout>
-        <section class="section active">
+        <section class="section active" style="padding-top: 40px; background: #f8fafc; min-height: 100vh;">
             <div class="container">
-                <!-- Welcome Section -->
-                <div class="hero" style="min-height:auto; padding: 40px 32px; margin-bottom: 40px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
-                    <div class="hero-content">
-                        <h2 style="color:white; font-size:28px; margin-bottom:8px;">Halo Owner, {{ username }}!</h2>
-                        <p style="color:#94a3b8; margin-bottom:0; font-size:15px;">Dashboard pemilik toko. Pantau laporan omzet, stok gudang, dan konfigurasi admin staf.</p>
-                    </div>
-                </div>
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;">
+                    
+                    <!-- Sidebar -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                        <!-- Profile -->
+                        <div 
+                            class="d-flex align-center gap-4 mb-4" 
+                            @click="activeTab = 'profile'" 
+                            style="cursor: pointer; padding: 12px; border-radius: 8px; transition: background 0.2s; margin: -12px -12px 16px -12px;"
+                            :style="activeTab === 'profile' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent; hover: background: #f8fafc;'"
+                        >
+                            <div style="width: 48px; height: 48px; background: #e11d48; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
+                                {{ username ? username.charAt(0).toUpperCase() : 'O' }}
+                            </div>
+                            <div>
+                                <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: #0f172a;">{{ username }}</h3>
+                                <div style="font-size: 13px; color: #64748b;">Sistem Kontrol Utama</div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 1px; background: #e2e8f0; margin: 16px 0;"></div>
+                        
+                        <!-- Menu -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div 
+                                @click="activeTab = 'dashboard'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'dashboard' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'dashboard' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Dashboard Owner</span>
+                                <div v-if="activeTab === 'dashboard'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
 
-                <!-- Stats Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-title">Omzet Finansial</span>
-                        <span class="stat-value" style="color:var(--color-primary)">
-                            {{ formatPrice(stats.totalRevenue) }}
-                        </span>
+                            <div 
+                                @click="activeTab = 'products'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'products' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'products' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Stok Produk</span>
+                                <div v-if="activeTab === 'products'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
+                            <div 
+                                @click="activeTab = 'validasi'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'validasi' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'validasi' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Validasi Pembayaran</span>
+                                <div v-if="activeTab === 'validasi'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
+                            <div 
+                                @click="activeTab = 'histori'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'histori' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'histori' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Histori Transaksi</span>
+                                <div v-if="activeTab === 'histori'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
+                            <div 
+                                @click="activeTab = 'admins'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'admins' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'admins' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Kelola Staf Admin</span>
+                                <div v-if="activeTab === 'admins'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-title">Transaksi Selesai</span>
-                        <span class="stat-value">{{ stats.salesCount }}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-title" style="color: var(--color-warning);">Butuh Restock</span>
-                        <span class="stat-value" style="color: var(--color-warning);">{{ stats.stockIssuesCount }}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-title">Staf Administrator</span>
-                        <span class="stat-value">{{ stats.totalAdmins }}</span>
-                    </div>
-                </div>
 
-                <!-- Tabs Selection -->
-                <div class="role-tabs" style="max-width: 600px; margin-bottom: 24px;">
-                    <div 
-                        class="role-tab" 
-                        :class="{ active: activeTab === 'products' }" 
-                        @click="activeTab = 'products'"
-                    >
-                        Stok Produk
-                    </div>
-                    <div 
-                        class="role-tab" 
-                        :class="{ active: activeTab === 'orders' }" 
-                        @click="activeTab = 'orders'"
-                    >
-                        Histori Transaksi
-                    </div>
-                    <div 
-                        class="role-tab" 
-                        :class="{ active: activeTab === 'admins' }" 
-                        @click="activeTab = 'admins'"
-                    >
-                        Kelola Staf Admin
-                    </div>
-                </div>
+                    <!-- Main Content -->
+                    <div>
+                        <!-- Tab Profil Saya -->
+                        <div v-if="activeTab === 'profile'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                            <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 24px;">Profil Saya</h3>
+                            
+                            <form @submit.prevent="saveProfile">
+                                <div v-if="$page.props.flash.success" style="background: #ecfdf5; color: #065f46; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #10b981; font-weight: 600; font-size: 14px;">
+                                    {{ $page.props.flash.success }}
+                                </div>
+                                <div v-if="$page.props.flash.error" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                                    {{ $page.props.flash.error }}
+                                </div>
+                                <div v-if="profileForm.errors.username" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                                    {{ profileForm.errors.username }}
+                                </div>
+                                
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nama Lengkap</label>
+                                    <input type="text" v-model="profileForm.name" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Username</label>
+                                    <input type="text" v-model="profileForm.username" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Email</label>
+                                    <input type="email" v-model="profileForm.email" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nomor HP</label>
+                                    <input type="text" v-model="profileForm.phone" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                                </div>
+                                <div class="form-group mb-6">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Password Baru <span style="font-weight: 400; color: #94a3b8;">(Kosongkan jika tidak ingin mengubah)</span></label>
+                                    <input type="password" v-model="profileForm.password" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" placeholder="Min. 3 karakter">
+                                </div>
+                                
+                                <button type="submit" style="padding: 12px 24px; background: #e11d48; color: white; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" :disabled="profileForm.processing">Simpan Perubahan</button>
+                            </form>
+                        </div>
+                        
+                        <template v-else>
+                        <!-- Tab 0: Dashboard Owner (Stats Only) -->
+                        <div v-if="activeTab === 'dashboard'" class="stats-grid mb-6">
+                            <div class="stat-card">
+                                <span class="stat-title">Omzet Finansial</span>
+                                <span class="stat-value" style="color:var(--color-primary)">
+                                    {{ formatPrice(stats.totalRevenue) }}
+                                </span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-title">Transaksi Selesai</span>
+                                <span class="stat-value">{{ stats.salesCount }}</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-title" style="color: var(--color-warning);">Butuh Restock</span>
+                                <span class="stat-value" style="color: var(--color-warning);">{{ stats.stockIssuesCount }}</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-title">Staf Administrator</span>
+                                <span class="stat-value">{{ stats.totalAdmins }}</span>
+                            </div>
+                        </div>
 
-                <!-- Tab 1: Products - Manajemen Stok Barang -->
+                        <!-- Tab 1: Products - Manajemen Stok Barang -->
                 <div v-if="activeTab === 'products'" class="table-card">
                     <div class="table-header" style="flex-direction: column; gap: 16px;">
                         <div class="d-flex justify-between align-center w-100">
@@ -444,10 +578,10 @@ const handleDeleteAdmin = (adminUsername) => {
                     </div>
                 </div>
 
-                <!-- Tab 2: Orders -->
-                <div v-else-if="activeTab === 'orders'" class="table-card">
+                <!-- Tab 2: Validasi Pembayaran -->
+                <div v-else-if="activeTab === 'validasi'" class="table-card">
                     <div class="table-header" style="flex-direction: column; gap: 16px;">
-                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a; margin: 0; align-self: flex-start;">Histori Transaksi</h3>
+                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a; margin: 0; align-self: flex-start;">Validasi Pembayaran</h3>
                         
                         <!-- Order Filters -->
                         <div class="d-flex align-center gap-4 flex-wrap w-100" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -590,38 +724,136 @@ const handleDeleteAdmin = (adminUsername) => {
                     </div>
                 </div>
 
+                <!-- Tab 2.5: Histori Transaksi -->
+                <div v-else-if="activeTab === 'histori'" class="table-card">
+                    <div class="table-header" style="flex-direction: column; gap: 16px;">
+                        <h3 style="font-size:20px; font-weight: 800; color: #0f172a; margin: 0; align-self: flex-start;">Histori Transaksi</h3>
+                        
+                        <!-- Order Filters -->
+                        <div class="d-flex align-center gap-4 flex-wrap w-100" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <!-- Search -->
+                            <div style="position: relative; flex: 1; min-width: 250px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <input v-model="orderSearchQuery" type="text" placeholder="Cari ID Pesanan / Produk" style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            
+                            <!-- Date Filter -->
+                            <div style="position: relative; min-width: 150px;">
+                                <input v-model="orderDateFilter" type="date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569;">
+                            </div>
+                        </div>
+
+                        <!-- Status Pills -->
+                        <div class="d-flex align-center gap-2 flex-wrap w-100">
+                            <span style="font-size: 13px; font-weight: 700; color: #64748b; margin-right: 8px;">Status:</span>
+                            <template v-for="status in ['Semua', 'Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan']" :key="status">
+                                <button
+                                    @click="orderStatusFilter = status"
+                                    style="padding: 4px 12px; font-size: 12px; border-radius: 16px; cursor: pointer; transition: all 0.2s; border: 1px solid;"
+                                    :style="orderStatusFilter === status ? 'background: #eafff2; color: #16a34a; border-color: #16a34a; font-weight: 600;' : 'background: white; color: #64748b; border-color: #cbd5e1;'"
+                                >
+                                    {{ status }}
+                                </button>
+                            </template>
+                            <span @click="resetOrderFilters" style="font-size: 12px; font-weight: 700; color: #16a34a; cursor: pointer; margin-left: auto;">Reset Filter</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">ID Order</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Nama Pelanggan</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Tanggal</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Metode Pengiriman</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Item Pesanan</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Nominal Tagihan</th>
+                                    <th style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="order in filteredOrders" :key="order.id">
+                                    <td style="font-weight: 800; font-family: monospace; color: #0f172a;">
+                                        {{ order.id }}
+                                    </td>
+                                    <td style="font-weight: 600; color: #0f172a;">
+                                        {{ order.customer || '-' }}
+                                    </td>
+                                    <td style="color: #475569;">{{ formatDate(order.createdAt) }}</td>
+                                    <td style="font-weight: 600; color: #0f172a;">
+                                        {{ order.shippingMethod || 'JNE' }}
+                                    </td>
+                                    <td>
+                                        <div v-for="item in order.items" :key="item.productId" style="margin-bottom: 8px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                            <div style="font-size: 12px; font-weight: 700; color: #0f172a;">{{ item.name }} ({{ item.qty }}x)</div>
+                                            <div v-if="item.color" style="font-size: 11px; color: #64748b; margin-top: 2px;">Warna: <span style="font-weight: 600;">{{ item.color }}</span></div>
+                                        </div>
+                                    </td>
+                                    <td style="font-weight: 800; color: #dc2626;">
+                                        {{ formatPrice(order.total || order.totalAmount || 0) }}
+                                    </td>
+                                    <td>
+                                        <span class="status-pill" :class="getStatusClass(order.status)">
+                                            {{ getStatusLabel(order.status) }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr v-if="filteredOrders.length === 0">
+                                    <td colspan="7" class="text-center text-muted" style="padding: 40px 0;">
+                                        Belum ada histori transaksi.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Tab 3: Admins Management -->
-                <div v-else class="dashboard-layout" style="grid-template-columns: 1.5fr 1fr;">
+                <div v-else class="dashboard-layout" style="grid-template-columns: 1fr;">
                     <!-- Admins List -->
                     <div class="table-card">
-                        <div class="table-header">
+                        <div class="table-header d-flex justify-between align-center">
                             <h3 style="font-size:18px;">Staf Operator Aktif</h3>
+                            <button @click="isCreateAdminModalOpen = true" class="btn btn-primary" style="font-size: 13px; padding: 8px 16px;">
+                                + Tambah Admin
+                            </button>
                         </div>
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Nama Staf</th>
-                                        <th>Username</th>
-                                        <th class="text-center">Tindakan</th>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">NAMA</th>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">NO TELEPON</th>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">EMAIL</th>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">ROLE</th>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">TANGGAL DIBUAT</th>
+                                        <th class="text-center" style="font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">AKSI</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="admin in admins" :key="admin.username">
-                                        <td style="font-weight: 700;">{{ admin.name }}</td>
-                                        <td>{{ admin.username }}</td>
+                                    <tr v-for="admin in admins.filter(a => a.role !== 'Owner')" :key="admin.username">
+                                        <td style="font-weight: 700; color: #334155;">{{ admin.name }}</td>
+                                        <td style="color: #475569;">{{ admin.phone || '-' }}</td>
+                                        <td style="color: #475569;">{{ admin.email || '-' }}</td>
+                                        <td>
+                                            <span style="padding: 4px 12px; font-size: 11px; border-radius: 12px; font-weight: 600; background: #dbeafe; color: #1e40af;">
+                                                {{ admin.role }}
+                                            </span>
+                                        </td>
+                                        <td style="color: #475569;">{{ formatDate(admin.createdAt) }}</td>
                                         <td class="text-center">
-                                            <button 
-                                                @click="handleDeleteAdmin(admin.username)"
-                                                class="btn-ghost"
-                                                style="color: var(--color-danger); cursor:pointer; font-weight: 700; font-size:12px;"
-                                            >
-                                                Hapus Akses
-                                            </button>
+                                            <div class="d-flex align-center justify-center gap-3">
+                                                <button @click="openEditAdminModal(admin)" style="background: none; border: none; cursor: pointer; color: #eab308; padding: 4px;" title="Edit">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                                </button>
+                                                <button v-if="admin.role === 'Admin'" @click="handleDeleteAdmin(admin.username)" style="background: none; border: none; cursor: pointer; color: #ef4444; padding: 4px;" title="Hapus">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr v-if="admins.length === 0">
-                                        <td colspan="3" class="text-center text-muted" style="padding: 40px 0;">
+                                        <td colspan="6" class="text-center text-muted" style="padding: 40px 0;">
                                             Belum ada staf administrator.
                                         </td>
                                     </tr>
@@ -630,51 +862,10 @@ const handleDeleteAdmin = (adminUsername) => {
                         </div>
                     </div>
 
-                    <!-- Create Admin Form -->
-                    <div class="sidebar-card">
-                        <h3 class="mb-4" style="font-size: 18px;">Tambah Staf Admin</h3>
-                        <form @submit.prevent="handleCreateAdmin">
-                            <div class="form-group">
-                                <label class="form-label">Nama Staf</label>
-                                <input 
-                                    type="text" 
-                                    class="form-input" 
-                                    placeholder="Nama Lengkap" 
-                                    v-model="newAdminForm.name"
-                                    required
-                                >
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Username</label>
-                                <input 
-                                    type="text" 
-                                    class="form-input" 
-                                    placeholder="Username login" 
-                                    v-model="newAdminForm.username"
-                                    required
-                                >
-                            </div>
-                            <div class="form-group mb-6">
-                                <label class="form-label">Kata Sandi</label>
-                                <input 
-                                    type="password" 
-                                    class="form-input" 
-                                    placeholder="Min. 3 karakter" 
-                                    v-model="newAdminForm.password"
-                                    required
-                                >
-                            </div>
-                            <button 
-                                type="submit" 
-                                class="btn btn-primary w-100" 
-                                :disabled="newAdminForm.processing"
-                            >
-                                <span v-if="newAdminForm.processing">Mendaftarkan...</span>
-                                <span v-else>Daftarkan Staf</span>
-                            </button>
-                        </form>
                     </div>
-                </div>
+                    </template>
+                    </div> <!-- End Main Content -->
+                </div> <!-- End Grid Layout -->
             </div>
         </section>
 
@@ -746,6 +937,68 @@ const handleDeleteAdmin = (adminUsername) => {
                     <button type="submit" class="btn btn-primary w-100" :disabled="newVariantForm.processing" style="padding: 8px 16px;">
                         {{ newVariantForm.processing ? 'Menambahkan...' : 'Tambah Varian' }}
                     </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Admin Modal -->
+        <div v-if="isEditAdminModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+            <div class="table-card" style="width:100%; max-width:400px; padding:32px; animation: slideUp 0.3s forwards;">
+                <h3 class="mb-4">Update Profil Admin</h3>
+                <form @submit.prevent="handleUpdateAdmin">
+                    <div class="form-group mb-4">
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" class="form-input" v-model="editAdminForm.name" required>
+                    </div>
+                    <div class="form-group mb-4">
+                        <label class="form-label">Nomor HP</label>
+                        <input type="text" class="form-input" v-model="editAdminForm.phone">
+                    </div>
+                    <div class="form-group mb-4">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" v-model="editAdminForm.email">
+                    </div>
+                    <div class="form-group mb-6">
+                        <label class="form-label">Password Baru <span style="font-weight: 400; color: #94a3b8; font-size: 12px;">(Kosongkan jika tak diubah)</span></label>
+                        <input type="password" class="form-input" v-model="editAdminForm.password" placeholder="Min. 3 karakter">
+                    </div>
+                    <div class="d-flex justify-between gap-4">
+                        <button type="button" @click="isEditAdminModalOpen = false" class="btn btn-outline w-100">Batal</button>
+                        <button type="submit" class="btn btn-primary w-100" :disabled="editAdminForm.processing">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Create Admin Modal -->
+        <div v-if="isCreateAdminModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+            <div class="table-card" style="width:100%; max-width:400px; padding:32px; animation: slideUp 0.3s forwards;">
+                <h3 class="mb-4">Tambah Staf Admin Baru</h3>
+                <form @submit.prevent="handleCreateAdmin">
+                    <div class="form-group mb-4">
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" class="form-input" v-model="newAdminForm.name" required>
+                    </div>
+                    <div class="form-group mb-4">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-input" v-model="newAdminForm.username" required>
+                    </div>
+                    <div class="form-group mb-4">
+                        <label class="form-label">Nomor HP</label>
+                        <input type="text" class="form-input" v-model="newAdminForm.phone">
+                    </div>
+                    <div class="form-group mb-4">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" v-model="newAdminForm.email">
+                    </div>
+                    <div class="form-group mb-6">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" v-model="newAdminForm.password" placeholder="Min. 3 karakter" required>
+                    </div>
+                    <div class="d-flex justify-between gap-4">
+                        <button type="button" @click="isCreateAdminModalOpen = false" class="btn btn-outline w-100">Batal</button>
+                        <button type="submit" class="btn btn-primary w-100" :disabled="newAdminForm.processing">Simpan</button>
+                    </div>
                 </form>
             </div>
         </div>

@@ -47,11 +47,15 @@ class OwnerController extends Controller
         
         $stockIssues = count(array_filter($products, fn($p) => ($p['stock'] ?? 0) <= 5));
 
+        $profileResult = $this->api->getProfile($token);
+        $profile = $profileResult['success'] ? $profileResult['data'] : null;
+
         return Inertia::render('Owner/Dashboard', [
             'products' => $products,
             'orders' => $orders,
             'admins' => $admins,
             'username' => session('auth_username', 'Owner'),
+            'profile' => $profile,
             'stats' => [
                 'totalRevenue' => $totalRevenue,
                 'salesCount' => count($completedOrders),
@@ -106,10 +110,12 @@ class OwnerController extends Controller
             'username' => 'required|string|min:3',
             'password' => 'required|string|min:3',
             'name'     => 'required|string|min:2',
+            'email'    => 'nullable|email',
+            'phone'    => 'nullable|string',
         ]);
 
         $token = session('auth_token');
-        $result = $this->api->createAdmin($token, $request->only('username', 'password', 'name'));
+        $result = $this->api->createAdmin($token, $request->only('username', 'password', 'name', 'email', 'phone'));
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal membuat akun admin.';
@@ -132,6 +138,36 @@ class OwnerController extends Controller
         }
 
         return back()->with('success', 'Akun admin berhasil dihapus.');
+    }
+
+    /**
+     * Update akun admin.
+     */
+    public function updateAdmin(Request $request, string $username)
+    {
+        $request->validate([
+            'name' => 'nullable|string',
+            'email' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'password' => 'nullable|string|min:3',
+        ]);
+
+        $data = [
+            'name' => $request->input('name') ?? '',
+            'email' => $request->input('email') ?? '',
+            'phone' => $request->input('phone') ?? '',
+            'password' => $request->input('password') ?? '',
+        ];
+
+        $token = session('auth_token');
+        $result = $this->api->updateAdmin($token, $username, $data);
+
+        if (!$result['success']) {
+            $error = $result['data']['error'] ?? 'Gagal memperbarui admin.';
+            return back()->with('error', $error);
+        }
+
+        return back()->with('success', 'Akun admin berhasil diperbarui.');
     }
 
     /**
@@ -349,5 +385,42 @@ class OwnerController extends Controller
         }
 
         return back()->with('success', 'Varian berhasil dihapus.');
+    }
+
+    /**
+     * Update owner profile.
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'username' => 'required|string',
+            'email' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'password' => 'nullable|string|min:3',
+        ]);
+
+        $data = [
+            'name' => $request->input('name') ?? '',
+            'username' => $request->input('username') ?? '',
+            'email' => $request->input('email') ?? '',
+            'phone' => $request->input('phone') ?? '',
+            'password' => $request->input('password') ?? '',
+        ];
+
+        $token = session('auth_token');
+        $result = $this->api->updateProfile($token, $data);
+
+        if (!$result['success']) {
+            \Illuminate\Support\Facades\Log::error('API Error Response:', $result);
+            $error = $result['data']['error'] ?? 'Gagal memperbarui profil.';
+            return back()->with('error', $error);
+        }
+
+        if ($request->input('username') !== session('auth_username')) {
+            session(['auth_username' => $request->input('username')]);
+        }
+
+        return back()->with('success', 'Profil berhasil diperbarui.');
     }
 }

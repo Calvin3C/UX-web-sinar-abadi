@@ -70,7 +70,6 @@ func Register(c *gin.Context) {
 			Phone:     input.Phone,
 			Email:     input.Email,
 			Gender:    input.Gender,
-			IsBlocked: false,
 		}
 		if result := config.DB.Create(&customer); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun customer"})
@@ -82,7 +81,6 @@ func Register(c *gin.Context) {
 				"username":  customer.Username,
 				"role":      "customer",
 				"name":      customer.Name,
-				"isBlocked": customer.IsBlocked,
 			},
 		})
 
@@ -95,7 +93,6 @@ func Register(c *gin.Context) {
 			Username:  input.Username,
 			Password:  string(hashedPassword),
 			Name:      name,
-			IsBlocked: false,
 		}
 		if result := config.DB.Create(&admin); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun admin"})
@@ -107,7 +104,6 @@ func Register(c *gin.Context) {
 				"username":  admin.Username,
 				"role":      "admin",
 				"name":      admin.Name,
-				"isBlocked": admin.IsBlocked,
 			},
 		})
 
@@ -129,7 +125,6 @@ func Login(c *gin.Context) {
 
 	var userID uint
 	var dbUsername, dbPassword, dbName, dbPhone string
-	var isBlocked bool
 
 	switch input.Role {
 	case "customer":
@@ -143,11 +138,10 @@ func Login(c *gin.Context) {
 		dbPassword = user.Password
 		dbName = user.Name
 		dbPhone = user.Phone
-		isBlocked = user.IsBlocked
 
 	case "admin":
 		var user models.Admin
-		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+		if result := config.DB.Where("email = ?", input.Username).First(&user); result.Error != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
 			return
 		}
@@ -155,11 +149,10 @@ func Login(c *gin.Context) {
 		dbUsername = user.Username
 		dbPassword = user.Password
 		dbName = user.Name
-		isBlocked = user.IsBlocked
 
 	case "owner":
 		var user models.Owner
-		if result := config.DB.Where("username = ?", input.Username).First(&user); result.Error != nil {
+		if result := config.DB.Where("email = ?", input.Username).First(&user); result.Error != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Kredensial tidak valid"})
 			return
 		}
@@ -167,16 +160,9 @@ func Login(c *gin.Context) {
 		dbUsername = user.Username
 		dbPassword = user.Password
 		dbName = user.Name
-		isBlocked = false // Owners cannot be blocked
 
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Role tidak valid"})
-		return
-	}
-
-	// Check if account is blocked
-	if isBlocked {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akun Anda telah diblokir oleh Admin"})
 		return
 	}
 
@@ -212,7 +198,6 @@ func Login(c *gin.Context) {
 			"role":      input.Role,
 			"name":      dbName,
 			"phone":     dbPhone,
-			"isBlocked": isBlocked,
 		},
 	})
 }

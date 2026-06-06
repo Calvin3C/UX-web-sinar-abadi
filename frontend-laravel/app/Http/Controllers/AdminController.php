@@ -34,10 +34,14 @@ class AdminController extends Controller
         $pendingOrders = count(array_filter($orders, fn($o) => strtolower($o['status'] ?? '') === 'pending'));
         $verifiedOrders = count(array_filter($orders, fn($o) => strtolower($o['status'] ?? '') === 'verified'));
 
+        $profileResult = $this->api->getProfile($token);
+        $profile = $profileResult['success'] ? $profileResult['data'] : null;
+
         return Inertia::render('Admin/Dashboard', [
             'orders' => $orders,
             'customers' => $customers,
             'username' => session('auth_username', 'Admin'),
+            'profile' => $profile,
             'stats' => [
                 'totalOrders' => count($orders),
                 'pendingOrders' => $pendingOrders,
@@ -47,20 +51,6 @@ class AdminController extends Controller
         ]);
     }
 
-    /**
-     * Toggle blokir/buka akses customer.
-     */
-    public function toggleBlock(string $username)
-    {
-        $token = session('auth_token');
-        $result = $this->api->toggleBlock($token, $username);
-
-        if (!$result['success']) {
-            return back()->with('error', 'Gagal mengubah status akses.');
-        }
-
-        return back()->with('success', $result['data']['message'] ?? 'Status akses berhasil diubah.');
-    }
 
     /**
      * Update status pengiriman (input resi / selesai / dll).
@@ -80,5 +70,42 @@ class AdminController extends Controller
         }
 
         return back()->with('success', 'Status pengiriman berhasil diperbarui.');
+    }
+
+    /**
+     * Update admin profile.
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'username' => 'required|string',
+            'email' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'password' => 'nullable|string|min:3',
+        ]);
+
+        $data = [
+            'name' => $request->input('name') ?? '',
+            'username' => $request->input('username') ?? '',
+            'email' => $request->input('email') ?? '',
+            'phone' => $request->input('phone') ?? '',
+            'password' => $request->input('password') ?? '',
+        ];
+
+        $token = session('auth_token');
+        $result = $this->api->updateProfile($token, $data);
+
+        if (!$result['success']) {
+            \Illuminate\Support\Facades\Log::error('API Error Response:', $result);
+            $error = $result['data']['error'] ?? 'Gagal memperbarui profil.';
+            return back()->with('error', $error);
+        }
+
+        if ($request->input('username') !== session('auth_username')) {
+            session(['auth_username' => $request->input('username')]);
+        }
+
+        return back()->with('success', 'Profil berhasil diperbarui.');
     }
 }

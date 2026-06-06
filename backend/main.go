@@ -117,12 +117,16 @@ func main() {
 	userRoutes := api.Group("/users")
 	userRoutes.Use(middleware.AuthRequired())
 	{
+		// Profile (All authenticated users)
+		userRoutes.GET("/profile", controllers.GetProfile)
+		userRoutes.PUT("/profile", controllers.UpdateProfile)
+
 		userRoutes.GET("", middleware.RoleRequired("admin", "owner"), controllers.GetCustomers)
-		userRoutes.PUT("/:username/block", middleware.RoleRequired("admin"), controllers.ToggleBlockUser)
 
 		// Admin management (Owner only)
 		userRoutes.GET("/admins", middleware.RoleRequired("owner"), controllers.GetAdmins)
 		userRoutes.POST("/admins", middleware.RoleRequired("owner"), controllers.CreateAdmin)
+		userRoutes.PUT("/admins/:username", middleware.RoleRequired("owner"), controllers.UpdateAdmin)
 		userRoutes.DELETE("/admins/:username", middleware.RoleRequired("owner"), controllers.DeleteAdmin)
 	}
 

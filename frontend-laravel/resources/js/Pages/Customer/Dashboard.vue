@@ -16,6 +16,10 @@ const props = defineProps({
     user: {
         type: Object,
         default: () => ({}),
+    },
+    profile: {
+        type: Object,
+        default: () => ({}),
     }
 });
 
@@ -23,10 +27,28 @@ const { addresses: mockAddresses, addAddress, updateAddress, setMainAddress } = 
 
 const isModalOpen = ref(false);
 const selectedOrderId = ref('');
-const activeMenu = ref('alamat'); // 'alamat', 'pesanan' or 'riwayat'
+const activeMenu = ref('alamat'); // 'alamat', 'pesanan', 'riwayat', or 'profile'
 
 const isAddressFormModalOpen = ref(false);
 const addressFormMode = ref('add'); // 'add' or 'edit'
+
+const profileForm = useForm({
+    name: props.profile?.name || '',
+    username: props.profile?.username || '',
+    email: props.profile?.email || '',
+    phone: props.profile?.phone || '',
+    gender: props.profile?.gender || '',
+    password: '',
+});
+
+const saveProfile = () => {
+    profileForm.put('/customer/profile', {
+        preserveScroll: true,
+        onSuccess: () => {
+            profileForm.password = '';
+        }
+    });
+};
 
 const addressForm = useForm({
     id: null,
@@ -284,7 +306,12 @@ const handleUploadProof = () => {
                     <!-- Sidebar -->
                     <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
                         <!-- Profile -->
-                        <div class="d-flex align-center gap-4 mb-4">
+                        <div 
+                            class="d-flex align-center gap-4 mb-4" 
+                            @click="activeMenu = 'profile'" 
+                            style="cursor: pointer; padding: 12px; border-radius: 8px; transition: background 0.2s; margin: -12px -12px 16px -12px;"
+                            :style="activeMenu === 'profile' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent; hover: background: #f8fafc;'"
+                        >
                             <div style="width: 48px; height: 48px; background: #e11d48; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
                                 {{ username.charAt(0).toUpperCase() }}
                             </div>
@@ -348,10 +375,56 @@ const handleUploadProof = () => {
 
                     <!-- Main Content -->
                     <div>
-                        <h3 class="section-title mb-6">{{ activeMenu === 'riwayat' ? 'Riwayat Selesai' : activeMenu === 'alamat' ? 'Daftar Alamat' : 'Pesanan & Pengiriman' }}</h3>
+                        <h3 class="section-title mb-6">{{ activeMenu === 'profile' ? 'Profil Saya' : activeMenu === 'riwayat' ? 'Riwayat Selesai' : activeMenu === 'alamat' ? 'Daftar Alamat' : 'Pesanan & Pengiriman' }}</h3>
+
+                <!-- Profil Saya Content -->
+                <div v-if="activeMenu === 'profile'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                    <form @submit.prevent="saveProfile">
+                        <div v-if="$page.props.flash.success" style="background: #ecfdf5; color: #065f46; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #10b981; font-weight: 600; font-size: 14px;">
+                            {{ $page.props.flash.success }}
+                        </div>
+                        <div v-if="$page.props.flash.error" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                            {{ $page.props.flash.error }}
+                        </div>
+                        <div v-if="profileForm.errors.username" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                            {{ profileForm.errors.username }}
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nama Lengkap</label>
+                            <input type="text" v-model="profileForm.name" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Username</label>
+                            <input type="text" v-model="profileForm.username" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Email</label>
+                            <input type="email" v-model="profileForm.email" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nomor HP</label>
+                            <input type="text" v-model="profileForm.phone" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Jenis Kelamin</label>
+                            <select v-model="profileForm.gender" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                                <option value="">Pilih Jenis Kelamin</option>
+                                <option value="Laki-laki">Laki-laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-6">
+                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Password Baru <span style="font-weight: 400; color: #94a3b8;">(Kosongkan jika tidak ingin mengubah)</span></label>
+                            <input type="password" v-model="profileForm.password" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" placeholder="Min. 3 karakter">
+                        </div>
+                        
+                        <button type="submit" style="padding: 12px 24px; background: #e11d48; color: white; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" :disabled="profileForm.processing">Simpan Perubahan</button>
+                    </form>
+                </div>
 
                 <!-- Daftar Alamat Content -->
-                <div v-if="activeMenu === 'alamat'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                <div v-else-if="activeMenu === 'alamat'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
                     <!-- Search & Add -->
                     <div class="d-flex justify-between align-center mb-6 gap-4">
                         <div style="position: relative; flex: 1;">

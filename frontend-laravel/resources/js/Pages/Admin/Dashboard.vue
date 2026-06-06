@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { router } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -20,13 +20,34 @@ const props = defineProps({
         type: Object,
         default: () => ({ totalOrders: 0, pendingOrders: 0, verifiedOrders: 0, totalCustomers: 0 }),
     },
+    profile: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
-const activeTab = ref('orders'); // 'orders' or 'customers'
+const activeTab = ref('dashboard'); // 'dashboard', 'orders', 'customers', or 'profile'
 
 const isShippingModalOpen = ref(false);
 const selectedOrderId = ref('');
 const shippingCode = ref('');
+
+const profileForm = useForm({
+    name: props.profile?.name || '',
+    username: props.profile?.username || '',
+    email: props.profile?.email || '',
+    phone: props.profile?.phone || '',
+    password: '',
+});
+
+const saveProfile = () => {
+    profileForm.put('/admin/profile', {
+        preserveScroll: true,
+        onSuccess: () => {
+            profileForm.password = '';
+        }
+    });
+};
 
 const orderSearchQuery = ref('');
 const orderDateFilter = ref('');
@@ -174,61 +195,126 @@ const getStatusLabel = (status) => {
         default: return status;
     }
 };
-
-const toggleBlockCustomer = (customerUsername) => {
-    router.put(`/admin/users/${customerUsername}/block`, {}, {
-        preserveScroll: true,
-    });
-};
 </script>
 
 <template>
     <AppLayout>
-        <section class="section active">
+        <section class="section active" style="padding-top: 40px; background: #f8fafc; min-height: 100vh;">
             <div class="container">
-                <!-- Welcome Section -->
-                <div class="hero" style="min-height:auto; padding: 40px 32px; margin-bottom: 40px; background: linear-gradient(135deg, var(--color-accent) 0%, #0f172a 100%);">
-                    <div class="hero-content">
-                        <h2 style="color:white; font-size:28px; margin-bottom:8px;">Halo Admin, {{ username }}!</h2>
-                        <p style="color:#94a3b8; margin-bottom:0; font-size:15px;">Kelola pesanan customer dan verifikasi pembayaran masuk secara efisien.</p>
-                    </div>
-                </div>
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;">
+                    
+                    <!-- Sidebar -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                        <!-- Profile -->
+                        <!-- Profile -->
+                        <div 
+                            class="d-flex align-center gap-4 mb-4" 
+                            @click="activeTab = 'profile'" 
+                            style="cursor: pointer; padding: 12px; border-radius: 8px; transition: background 0.2s; margin: -12px -12px 16px -12px;"
+                            :style="activeTab === 'profile' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent; hover: background: #f8fafc;'"
+                        >
+                            <div style="width: 48px; height: 48px; background: #e11d48; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
+                                {{ username ? username.charAt(0).toUpperCase() : 'A' }}
+                            </div>
+                            <div>
+                                <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: #0f172a;">{{ username }}</h3>
+                                <div style="font-size: 13px; color: #64748b;">Administrator</div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 1px; background: #e2e8f0; margin: 16px 0;"></div>
+                        
+                        <!-- Menu -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div 
+                                @click="activeTab = 'dashboard'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'dashboard' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'dashboard' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Dashboard Admin</span>
+                                <div v-if="activeTab === 'dashboard'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
 
-                <!-- Stats Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-title">Total Pesanan</span>
-                        <span class="stat-value">{{ stats.totalOrders }}</span>
+                            <div 
+                                @click="activeTab = 'orders'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'orders' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'orders' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Update Status Order</span>
+                                <div v-if="activeTab === 'orders'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                            
+                            <div 
+                                @click="activeTab = 'customers'"
+                                style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                :style="activeTab === 'customers' ? 'background: #ffe4e6; border-left: 4px solid #e11d48;' : 'border-left: 4px solid transparent;'"
+                            >
+                                <span :style="activeTab === 'customers' ? 'color: #e11d48; font-weight: 700; font-size: 14px;' : 'color: #64748b; font-weight: 600; font-size: 14px;'">Daftar Customer</span>
+                                <div v-if="activeTab === 'customers'" style="width: 14px; height: 14px; background: #e11d48; border-radius: 50%;"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-title" style="color: var(--color-warning);">Menunggu Status Order</span>
-                        <span class="stat-value" style="color: var(--color-warning);">{{ stats.pendingOrders }}</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-title">Total Pelanggan</span>
-                        <span class="stat-value">{{ stats.totalCustomers }}</span>
-                    </div>
-                </div>
 
-                <!-- Tabs Selection -->
-                <div class="role-tabs" style="max-width: 400px; margin-bottom: 24px;">
-                    <div 
-                        class="role-tab" 
-                        :class="{ active: activeTab === 'orders' }" 
-                        @click="activeTab = 'orders'"
-                    >
-                        Update Status Order
-                    </div>
-                    <div 
-                        class="role-tab" 
-                        :class="{ active: activeTab === 'customers' }" 
-                        @click="activeTab = 'customers'"
-                    >
-                        Daftar Customer
-                    </div>
-                </div>
+                    <!-- Main Content -->
+                    <div>
+                        <!-- Tab Profil Saya -->
+                        <div v-if="activeTab === 'profile'" style="background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 24px;">
+                            <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 24px;">Profil Saya</h3>
+                            
+                            <form @submit.prevent="saveProfile">
+                                <div v-if="$page.props.flash.success" style="background: #ecfdf5; color: #065f46; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #10b981; font-weight: 600; font-size: 14px;">
+                                    {{ $page.props.flash.success }}
+                                </div>
+                                <div v-if="$page.props.flash.error" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                                    {{ $page.props.flash.error }}
+                                </div>
+                                <div v-if="profileForm.errors.username" style="background: #fef2f2; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #ef4444; font-weight: 600; font-size: 14px;">
+                                    {{ profileForm.errors.username }}
+                                </div>
+                                
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nama Lengkap</label>
+                                    <input type="text" v-model="profileForm.name" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Username</label>
+                                    <input type="text" v-model="profileForm.username" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" required>
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Email</label>
+                                    <input type="email" v-model="profileForm.email" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                                </div>
+                                <div class="form-group mb-4">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nomor HP</label>
+                                    <input type="text" v-model="profileForm.phone" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                                </div>
+                                <div class="form-group mb-6">
+                                    <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Password Baru <span style="font-weight: 400; color: #94a3b8;">(Kosongkan jika tidak ingin mengubah)</span></label>
+                                    <input type="password" v-model="profileForm.password" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;" placeholder="Min. 3 karakter">
+                                </div>
+                                
+                                <button type="submit" style="padding: 12px 24px; background: #e11d48; color: white; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" :disabled="profileForm.processing">Simpan Perubahan</button>
+                            </form>
+                        </div>
+                        
+                        <template v-else>
+                        <!-- Tab 0: Dashboard (Stats Only) -->
+                        <div v-if="activeTab === 'dashboard'" class="stats-grid mb-6">
+                            <div class="stat-card">
+                                <span class="stat-title">Total Pesanan</span>
+                                <span class="stat-value">{{ stats.totalOrders }}</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-title" style="color: var(--color-warning);">Menunggu Status Order</span>
+                                <span class="stat-value" style="color: var(--color-warning);">{{ stats.pendingOrders }}</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-title">Total Pelanggan</span>
+                                <span class="stat-value">{{ stats.totalCustomers }}</span>
+                            </div>
+                        </div>
 
-                <!-- Tab 1: Orders -->
+                        <!-- Tab 1: Orders -->
                 <div v-if="activeTab === 'orders'" class="table-card">
                     <div class="table-header" style="flex-direction: column; gap: 16px;">
                         <h3 style="font-size:18px; align-self: flex-start; margin: 0;">Daftar Transaksi</h3>
@@ -369,33 +455,16 @@ const toggleBlockCustomer = (customerUsername) => {
                                 <tr>
                                     <th>Nama Lengkap</th>
                                     <th>Username</th>
-                                    <th>Status Akun</th>
-                                    <th class="text-center">Aksi Moderasi</th>
+                                    <th>Email</th>
+                                    <th>No Telepon</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="cust in customers" :key="cust.username">
                                     <td style="font-weight: 700;">{{ cust.name }}</td>
                                     <td>{{ cust.username }}</td>
-                                    <td>
-                                        <span 
-                                            class="status-pill" 
-                                            :class="cust.blocked ? 'cancelled' : 'success'"
-                                        >
-                                            {{ cust.blocked ? 'Diblokir' : 'Aktif' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        <button 
-                                            @click="toggleBlockCustomer(cust.username)"
-                                            class="btn"
-                                            :class="cust.blocked ? 'btn-primary' : 'btn-outline'"
-                                            style="padding: 6px 12px; font-size:12px;"
-                                            :style="cust.blocked ? { background: 'var(--color-success)' } : { color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }"
-                                        >
-                                            {{ cust.blocked ? 'Aktifkan Akun' : 'Blokir Customer' }}
-                                        </button>
-                                    </td>
+                                    <td>{{ cust.email || '-' }}</td>
+                                    <td>{{ cust.phone || '-' }}</td>
                                 </tr>
                                 <tr v-if="customers.length === 0">
                                     <td colspan="4" class="text-center text-muted" style="padding: 40px 0;">
@@ -406,8 +475,11 @@ const toggleBlockCustomer = (customerUsername) => {
                         </table>
                     </div>
                 </div>
-            </div>
-        </section>
+                </template>
+                </div> <!-- End Main Content -->
+            </div> <!-- End Grid Layout -->
+        </div>
+    </section>
 
         <!-- Shipping Code Modal -->
         <div v-if="isShippingModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
