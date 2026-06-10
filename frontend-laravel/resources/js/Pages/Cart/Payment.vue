@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm, Link } from '@inertiajs/vue3';
+import { useForm, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted } from 'vue';
 import { useAddresses } from '@/Composables/useAddresses';
 
@@ -42,6 +42,9 @@ const storeAddress = {
 const selectedAddress = ref(mockAddresses.value.length > 0 ? mockAddresses.value[0] : storeAddress);
 
 const selectedBank = ref(props.bankAccounts[0]?.name || 'Mandiri');
+const selectedPaymentMethod = ref('midtrans'); // 'midtrans' or 'manual'
+const isProcessingMidtrans = ref(false);
+const midtransError = ref('');
 
 const checkoutForm = useForm({
     bank: selectedBank.value,
@@ -53,6 +56,7 @@ const checkoutForm = useForm({
     shipping_cost: 0,
     courier_code: '',
     courier_service_code: '',
+    payment_type: 'midtrans',
 });
 
 const isDragging = ref(false);
@@ -363,7 +367,19 @@ const grandTotal = computed(() => {
     return subtotal.value + ppn.value + currentShippingCost.value;
 });
 
-const handleCheckout = () => {
+const isCheckoutDisabled = computed(() => {
+    const courierNotReady = activeTab.value === 'semua' && !selectedRate.value;
+    const malangCheck = checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang');
+    const processing = checkoutForm.processing || isProcessingMidtrans.value;
+    
+    if (selectedPaymentMethod.value === 'midtrans') {
+        return processing || courierNotReady || malangCheck;
+    }
+    // Manual: also need proof
+    return processing || !checkoutForm.proof || courierNotReady || malangCheck;
+});
+
+const handleCheckout = async () => {
     if (checkoutForm.courier === 'Kurir Toko Sinar Abadi') {
         if (!checkoutForm.address.toLowerCase().includes('malang')) {
             alert('Pengiriman Kurir Toko Sinar Abadi hanya berlaku untuk area Malang. Silakan gunakan metode pengiriman lain atau ubah alamat Anda.');
@@ -377,6 +393,96 @@ const handleCheckout = () => {
 
     checkoutForm.bank = selectedBank.value;
     checkoutForm.shipping_cost = currentShippingCost.value;
+    checkoutForm.payment_type = selectedPaymentMethod.value;
+
+    // === MIDTRANS FLOW ===
+    if (selectedPaymentMethod.value === 'midtrans') {
+        isProcessingMidtrans.value = true;
+        midtransError.value = '';
+        
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const formData = new FormData();
+            formData.append('payment_type', 'midtrans');
+            formData.append('address', checkoutForm.address);
+            formData.append('phone', checkoutForm.phone);
+            formData.append('courier', checkoutForm.courier);
+            formData.append('biteship_area_id', checkoutForm.biteship_area_id);
+            formData.append('shipping_cost', checkoutForm.shipping_cost);
+            formData.append('courier_code', checkoutForm.courier_code);
+            formData.append('courier_service_code', checkoutForm.courier_service_code);
+
+            const response = await fetch('/checkout', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                midtransError.value = data.error || 'Gagal membuat pesanan.';
+                isProcessingMidtrans.value = false;
+                return;
+            }
+
+            if (data.snapToken) {
+                // Open Midtrans Snap popup
+                window.snap.pay(data.snapToken, {
+                    onSuccess: async function(result) {
+                        // Clear cart and redirect
+                        await fetch('/cart/clear', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrfToken,
+                                'Accept': 'application/json',
+                            },
+                        });
+                        router.visit('/customer/dashboard', {
+                            method: 'get',
+                            data: {},
+                            replace: true,
+                        });
+                    },
+                    onPending: function(result) {
+                        // Payment pending — clear cart and redirect
+                        fetch('/cart/clear', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrfToken,
+                                'Accept': 'application/json',
+                            },
+                        });
+                        router.visit('/customer/dashboard', {
+                            method: 'get',
+                            replace: true,
+                        });
+                    },
+                    onError: function(result) {
+                        midtransError.value = 'Pembayaran gagal. Silakan coba lagi.';
+                        isProcessingMidtrans.value = false;
+                    },
+                    onClose: function() {
+                        // User closed the popup without finishing
+                        isProcessingMidtrans.value = false;
+                    }
+                });
+            } else {
+                midtransError.value = 'Token pembayaran tidak ditemukan.';
+                isProcessingMidtrans.value = false;
+            }
+        } catch (err) {
+            console.error('Midtrans checkout error:', err);
+            midtransError.value = 'Terjadi kesalahan. Silakan coba lagi.';
+            isProcessingMidtrans.value = false;
+        }
+        return;
+    }
+
+    // === MANUAL TRANSFER FLOW ===
     checkoutForm.post('/checkout', {
         forceFormData: true,
     });
@@ -485,21 +591,65 @@ const handleCheckout = () => {
                                 Silahkan pilih metode pembayaran yang Anda inginkan:
                             </p>
 
+                            <!-- Option 1: Midtrans Online Payment -->
+                            <div 
+                                class="order-card mb-3"
+                                :style="selectedPaymentMethod === 'midtrans' ? { borderColor: '#0ea5e9', background: '#f0f9ff' } : { cursor: 'pointer' }"
+                                @click="selectedPaymentMethod = 'midtrans'"
+                            >
+                                <div class="d-flex align-center gap-3">
+                                    <div 
+                                        style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; background: white;"
+                                        :style="selectedPaymentMethod === 'midtrans' ? { borderColor: '#0ea5e9' } : {}"
+                                    >
+                                        <div 
+                                            v-if="selectedPaymentMethod === 'midtrans'"
+                                            style="width: 10px; height: 10px; border-radius: 50%; background: #0ea5e9;"
+                                        ></div>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <span style="font-size: 14px; font-weight: 600; color: #1e293b;">
+                                            Bayar Online (Midtrans)
+                                        </span>
+                                        <span style="font-size: 11px; font-weight: 700; color: white; background: linear-gradient(135deg, #0ea5e9, #6366f1); padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
+                                            OTOMATIS
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div v-if="selectedPaymentMethod === 'midtrans'" style="margin-top: 16px; margin-left: 31px; background: white; padding: 16px; border-radius: 6px; border: 1px solid #e0f2fe;">
+                                    <div style="font-size: 13px; color: #334155; line-height: 1.6;">
+                                        <div class="d-flex align-center gap-2 mb-2">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            <span>Verifikasi pembayaran <b>otomatis</b></span>
+                                        </div>
+                                        <div class="d-flex align-center gap-2 mb-2">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            <span>Tersedia: Virtual Account, GoPay, QRIS, Kartu Kredit, dll.</span>
+                                        </div>
+                                        <div class="d-flex align-center gap-2">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            <span>Tidak perlu upload bukti transfer</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Option 2: Transfer Bank Manual -->
                             <div 
                                 v-for="bank in bankAccounts" 
                                 :key="bank.name" 
                                 class="order-card mb-3"
-                                :style="selectedBank === bank.name ? { borderColor: '#3b82f6', background: '#eff6ff' } : { cursor: 'pointer' }"
-                                @click="selectedBank = bank.name"
+                                :style="selectedPaymentMethod === 'manual' ? { borderColor: '#3b82f6', background: '#eff6ff' } : { cursor: 'pointer' }"
+                                @click="selectedPaymentMethod = 'manual'; selectedBank = bank.name"
                             >
                                 <div class="d-flex align-center gap-3">
-                                    <!-- Radio input mimic -->
                                     <div 
                                         style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; background: white;"
-                                        :style="selectedBank === bank.name ? { borderColor: '#3b82f6' } : {}"
+                                        :style="selectedPaymentMethod === 'manual' ? { borderColor: '#3b82f6' } : {}"
                                     >
                                         <div 
-                                            v-if="selectedBank === bank.name"
+                                            v-if="selectedPaymentMethod === 'manual'"
                                             style="width: 10px; height: 10px; border-radius: 50%; background: #3b82f6;"
                                         ></div>
                                     </div>
@@ -508,7 +658,7 @@ const handleCheckout = () => {
                                     </span>
                                 </div>
 
-                                <div v-if="selectedBank === bank.name" style="margin-top: 16px; margin-left: 31px; background: white; padding: 16px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                <div v-if="selectedPaymentMethod === 'manual'" style="margin-top: 16px; margin-left: 31px; background: white; padding: 16px; border-radius: 6px; border: 1px solid #e2e8f0;">
                                     <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Instruksi Pembayaran (Rekening Tujuan)</div>
                                     <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Silakan transfer tagihan Anda ke rekening kami berikut:</div>
                                     
@@ -520,15 +670,15 @@ const handleCheckout = () => {
 
                                     <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Alamat Sinar Abadi (Pusat)</div>
                                     <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
-                                        Jalan Utara Masjid No.9, Dampit Wetan, Dampit, Kec. Dampit, Kabupaten Malang, Jawa Timur 65181 • +62 8123388670
+                                        Jalan Utara Masjid No.9, Dampit Wetan, Dampit, Kec. Dampit, Kabupaten Malang, Jawa Timur 65181 &bull; +62 8123388670
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div style="margin-top: 16px; margin-bottom: 16px;">
+
+                            <!-- Upload Bukti Transfer (only for manual) -->
+                            <div v-if="selectedPaymentMethod === 'manual'" style="margin-top: 16px; margin-bottom: 16px;">
                                 <label style="font-size: 13px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 8px;">Upload Bukti Transfer</label>
                                 
-                                <!-- Hidden file input -->
                                 <input 
                                     ref="fileInputRef"
                                     type="file" 
@@ -537,7 +687,6 @@ const handleCheckout = () => {
                                     style="display: none;"
                                 >
 
-                                <!-- Drop zone -->
                                 <div 
                                     v-if="!proofPreview"
                                     @click="triggerFileInput"
@@ -554,7 +703,6 @@ const handleCheckout = () => {
                                         transition: 'all 0.25s ease',
                                     }"
                                 >
-                                    <!-- Cloud Upload Icon -->
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 12px; display: block;">
                                         <path d="M16.5 18.5h-9a5 5 0 0 1-.42-9.98A7 7 0 0 1 20 9a4.5 4.5 0 0 1-0.5 8.97"></path>
                                         <polyline points="12 13 12 21"></polyline>
@@ -564,7 +712,6 @@ const handleCheckout = () => {
                                     <div style="font-size: 12px; color: #94a3b8;">Format: JPG, PNG, JPEG (Maks. 4MB)</div>
                                 </div>
 
-                                <!-- Preview -->
                                 <div v-else style="position: relative; border: 2px solid #10b981; border-radius: 12px; padding: 12px; background: #f0fdf4; text-align: center;">
                                     <img :src="proofPreview" alt="Preview bukti transfer" style="max-height: 200px; max-width: 100%; border-radius: 8px; object-fit: contain;" />
                                     <div style="margin-top: 8px; font-size: 13px; color: #059669; font-weight: 600;">{{ checkoutForm.proof?.name }}</div>
@@ -585,14 +732,20 @@ const handleCheckout = () => {
                                 <div style="font-size: 13px; color: #dc2626; margin-bottom: 8px;" v-if="checkoutForm.errors.bank">
                                     {{ checkoutForm.errors.bank }}
                                 </div>
+                                <div style="font-size: 13px; color: #dc2626; margin-bottom: 8px;" v-if="midtransError">
+                                    {{ midtransError }}
+                                </div>
                                 <button 
                                     type="submit" 
                                     class="btn w-100" 
-                                    style="background: #0f172a; color: white; font-size:14px; padding:16px; font-weight: 700; border-radius: 6px;"
-                                    :disabled="checkoutForm.processing || !checkoutForm.proof || (activeTab === 'semua' && !selectedRate) || (checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang'))"
-                                    :style="(!checkoutForm.proof || (activeTab === 'semua' && !selectedRate) || (checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang'))) ? { opacity: 0.5, cursor: 'not-allowed' } : {}"
+                                    :style="[
+                                        { background: selectedPaymentMethod === 'midtrans' ? 'linear-gradient(135deg, #0ea5e9, #6366f1)' : '#0f172a', color: 'white', fontSize: '14px', padding: '16px', fontWeight: '700', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease' },
+                                        isCheckoutDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}
+                                    ]"
+                                    :disabled="isCheckoutDisabled"
                                 >
-                                    <span v-if="checkoutForm.processing">MEMBUAT PESANAN...</span>
+                                    <span v-if="checkoutForm.processing || isProcessingMidtrans">MEMPROSES PESANAN...</span>
+                                    <span v-else-if="selectedPaymentMethod === 'midtrans'">&#x1F512; BAYAR DENGAN MIDTRANS</span>
                                     <span v-else>BAYAR SEKARANG</span>
                                 </button>
                             </form>

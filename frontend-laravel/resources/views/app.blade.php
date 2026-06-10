@@ -13,6 +13,11 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
+
+    <!-- Midtrans Snap.js (Sandbox) -->
+    <script type="text/javascript"
+        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        data-client-key="{{ env('MIDTRANS_CLIENT_KEY') }}"></script>
 </head>
 <body>
     @inertia

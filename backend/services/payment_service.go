@@ -13,27 +13,51 @@ func NewPaymentService() *PaymentService {
 	return &PaymentService{}
 }
 
-// InitiatePayment simulates initiating a payment process with a provider.
-func (s *PaymentService) InitiatePayment(orderID string, method string, amount int64) (string, error) {
-	// Dummy logic for generating Virtual Account or Payment Token
+// InitiatePaymentResult holds the result of a payment initiation.
+type InitiatePaymentResult struct {
+	Reference string // VA number or token for manual transfers
+	SnapToken string // Midtrans Snap token (only for Midtrans payments)
+}
+
+// InitiatePayment handles payment initiation for both manual and Midtrans methods.
+func (s *PaymentService) InitiatePayment(orderID string, method string, amount int64, customerName string, customerEmail string, customerPhone string, items []SnapItem) (*InitiatePaymentResult, error) {
 	methodLower := strings.ToLower(method)
-	
+
+	// ── Midtrans Online Payment ──
+	if strings.Contains(methodLower, "midtrans") || strings.Contains(methodLower, "online") {
+		midtrans := NewMidtransService()
+		snapResp, err := midtrans.CreateSnapTransaction(orderID, amount, customerName, customerEmail, customerPhone, items)
+		if err != nil {
+			return nil, fmt.Errorf("gagal membuat transaksi Midtrans: %v", err)
+		}
+		return &InitiatePaymentResult{
+			Reference: "MIDTRANS",
+			SnapToken: snapResp.Token,
+		}, nil
+	}
+
+	// ── Transfer Bank Manual ──
+	if strings.Contains(methodLower, "transfer") || strings.Contains(methodLower, "bank") {
+		return &InitiatePaymentResult{
+			Reference: "MANUAL-TRANSFER",
+		}, nil
+	}
+
+	// ── Legacy: Virtual Account (fallback) ──
 	if strings.Contains(methodLower, "virtual account") || strings.Contains(methodLower, "va") {
-		// Generate random VA number using new random generator
 		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 		vaNumber := fmt.Sprintf("88000%d", rng.Intn(90000000)+10000000)
-		return vaNumber, nil
+		return &InitiatePaymentResult{
+			Reference: vaNumber,
+		}, nil
 	}
 
+	// ── Legacy: Credit Card (fallback) ──
 	if strings.Contains(methodLower, "credit") {
-		// Token or redirect URL for credit card
-		return "CC-TOKEN-MOCK-FOR-" + orderID, nil
+		return &InitiatePaymentResult{
+			Reference: "CC-TOKEN-MOCK-FOR-" + orderID,
+		}, nil
 	}
 
-	if strings.Contains(methodLower, "transfer") || strings.Contains(methodLower, "bank") {
-		// Just manual transfer
-		return "MANUAL-TRANSFER", nil
-	}
-
-	return "", fmt.Errorf("metode pembayaran %s belum didukung", method)
+	return nil, fmt.Errorf("metode pembayaran %s belum didukung", method)
 }

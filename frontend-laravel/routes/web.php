@@ -52,6 +52,7 @@ Route::middleware('auth.api:customer')->group(function () {
     Route::post('/cart/set-logistics', [CartController::class, 'setLogistics'])->name('cart.setLogistics');
     Route::get('/cart/payment', [CartController::class, 'paymentPage'])->name('cart.payment');
     Route::post('/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    Route::post('/cart/clear', [CartController::class, 'clearCart'])->name('cart.clear');
 });
 
 // =====================================================================

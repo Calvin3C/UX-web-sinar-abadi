@@ -1,7 +1,10 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"time"
@@ -220,8 +223,48 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// Build Midtrans item list for Snap
+	var snapItems []services.SnapItem
+	var sumItems int64 = 0
+	for _, item := range input.Items {
+		snapItems = append(snapItems, services.SnapItem{
+			ID:       item.ProductID,
+			Price:    item.Price,
+			Quantity: item.Qty,
+			Name:     item.Name,
+		})
+		sumItems += (item.Price * int64(item.Qty))
+	}
+	
+	// Add PPN / Tax difference if applicable
+	ppn := input.Total - sumItems
+	if ppn > 0 {
+		snapItems = append(snapItems, services.SnapItem{
+			ID:       "PPN",
+			Price:    ppn,
+			Quantity: 1,
+			Name:     "PPN (11%)",
+		})
+	}
+
+	// Add shipping cost as an item if applicable
+	if shippingCost > 0 {
+		snapItems = append(snapItems, services.SnapItem{
+			ID:       "SHIPPING",
+			Price:    shippingCost,
+			Quantity: 1,
+			Name:     "Ongkos Kirim",
+		})
+	}
+
+	// Get customer email if available
+	customerEmail := ""
+	if customer.Email != "" {
+		customerEmail = customer.Email
+	}
+
 	// Initiate Payment
-	_, err := paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total)
+	payResult, err := paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total, customerNameStr, customerEmail, input.Phone, snapItems)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -233,6 +276,7 @@ func CreateOrder(c *gin.Context) {
 		PaymentMethod: input.PaymentMethod,
 		AmountPaid:    order.Total,
 		PaymentStatus: "Pending",
+		SnapToken:     payResult.SnapToken,
 	}
 
 	if result := tx.Create(&payment); result.Error != nil {
@@ -246,7 +290,31 @@ func CreateOrder(c *gin.Context) {
 	// Reload with items, shipping, and payment for response
 	config.DB.Preload("Items").Preload("Shipping").Preload("Payment").First(&order, "id = ?", order.ID)
 
-	c.JSON(http.StatusCreated, order)
+	// Return order with snapToken for Midtrans
+	response := gin.H{
+		"id":             order.ID,
+		"date":           order.Date,
+		"customerId":     order.CustomerID,
+		"customer":       order.CustomerName,
+		"phone":          order.Phone,
+		"address":        order.Address,
+		"shippingMethod": order.ShippingMethod,
+		"total":          order.Total,
+		"status":         order.Status,
+		"shippingStatus": order.ShippingStatus,
+		"proofUploaded":  order.ProofUploaded,
+		"proofUrl":       order.ProofUrl,
+		"items":          order.Items,
+		"shipping":       order.Shipping,
+		"payment":        order.Payment,
+		"createdAt":      order.CreatedAt,
+		"updatedAt":      order.UpdatedAt,
+	}
+	if payResult.SnapToken != "" {
+		response["snapToken"] = payResult.SnapToken
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // GetOrders returns orders based on the user's role.
@@ -513,4 +581,129 @@ func CompleteOrderCustomer(c *gin.Context) {
 	config.DB.Model(&order).Update("status", "COMPLETED")
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil diselesaikan", "order": order})
+}
+
+// MidtransWebhook handles payment notification callbacks from Midtrans.
+// POST /api/midtrans/webhook
+func MidtransWebhook(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.Printf("❌ Midtrans Webhook: gagal membaca body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	log.Printf("🔔 Midtrans Webhook received: %s", string(body))
+
+	var notification map[string]interface{}
+	if err := json.Unmarshal(body, &notification); err != nil {
+		log.Printf("❌ Midtrans Webhook: gagal parse JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+		return
+	}
+
+	orderID, _ := notification["order_id"].(string)
+	statusCode, _ := notification["status_code"].(string)
+	grossAmount, _ := notification["gross_amount"].(string)
+	signatureKey, _ := notification["signature_key"].(string)
+	transactionStatus, _ := notification["transaction_status"].(string)
+	fraudStatus, _ := notification["fraud_status"].(string)
+	transactionID, _ := notification["transaction_id"].(string)
+	paymentType, _ := notification["payment_type"].(string)
+
+	// Verify signature
+	midtransSvc := services.NewMidtransService()
+	if !midtransSvc.VerifySignatureKey(orderID, statusCode, grossAmount, signatureKey) {
+		log.Printf("❌ Midtrans Webhook: signature tidak valid untuk order %s", orderID)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Invalid signature"})
+		return
+	}
+
+	log.Printf("✅ Midtrans Webhook verified: order=%s status=%s fraud=%s payment=%s", orderID, transactionStatus, fraudStatus, paymentType)
+
+	// Find the order
+	var order models.Order
+	if result := config.DB.Where("id = ?", orderID).First(&order); result.Error != nil {
+		log.Printf("❌ Midtrans Webhook: order %s tidak ditemukan", orderID)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	// Find the payment
+	var payment models.Payment
+	if result := config.DB.Where("order_id = ?", orderID).First(&payment); result.Error != nil {
+		log.Printf("❌ Midtrans Webhook: payment untuk order %s tidak ditemukan", orderID)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		return
+	}
+
+	// Update payment method info
+	paymentUpdates := map[string]interface{}{
+		"midtrans_trans_id": transactionID,
+		"payment_method":    "Midtrans (" + paymentType + ")",
+	}
+
+	// Map Midtrans transaction status to our order/payment status
+	switch transactionStatus {
+	case "capture":
+		if fraudStatus == "accept" {
+			now := time.Now()
+			paymentUpdates["payment_status"] = "Success"
+			paymentUpdates["paid_at"] = &now
+			config.DB.Model(&order).Updates(map[string]interface{}{
+				"status":      "success",
+				"proof_uploaded": true,
+			})
+			log.Printf("✅ Order %s: pembayaran berhasil (capture/accept)", orderID)
+		}
+	case "settlement":
+		now := time.Now()
+		paymentUpdates["payment_status"] = "Success"
+		paymentUpdates["paid_at"] = &now
+		config.DB.Model(&order).Updates(map[string]interface{}{
+			"status":      "success",
+			"proof_uploaded": true,
+		})
+		log.Printf("✅ Order %s: pembayaran settlement berhasil", orderID)
+	case "pending":
+		paymentUpdates["payment_status"] = "Pending"
+		log.Printf("⏳ Order %s: pembayaran pending", orderID)
+	case "deny", "cancel", "expire":
+		paymentUpdates["payment_status"] = "Failed"
+		// Restore stock if order was not yet cancelled
+		if order.Status != "cancelled" {
+			config.DB.Model(&order).Update("status", "cancelled")
+			// Restore stock for cancelled orders
+			var orderItems []models.OrderItem
+			config.DB.Where("order_id = ?", orderID).Find(&orderItems)
+			for _, item := range orderItems {
+				var product models.Product
+				if err := config.DB.Where("id = ?", item.ProductID).First(&product).Error; err == nil {
+					config.DB.Model(&product).Update("sold", product.Sold-item.Qty)
+				}
+				var currentStock int
+				config.DB.Model(&models.StockLog{}).
+					Where("product_id = ?", item.ProductID).
+					Select("COALESCE(SUM(qty_changed), 0)").
+					Scan(&currentStock)
+
+				config.DB.Create(&models.StockLog{
+					ProductID:   item.ProductID,
+					ChangeType:  "addition",
+					QtyChanged:  item.Qty,
+					FinalStock:  currentStock + item.Qty,
+					Description: fmt.Sprintf("Pembatalan Midtrans (Order %s - %s)", orderID, transactionStatus),
+				})
+			}
+		}
+		log.Printf("❌ Order %s: pembayaran %s", orderID, transactionStatus)
+	case "refund", "partial_refund":
+		paymentUpdates["payment_status"] = "Refund"
+		config.DB.Model(&order).Update("status", "refund")
+		log.Printf("💰 Order %s: refund diproses", orderID)
+	}
+
+	config.DB.Model(&payment).Updates(paymentUpdates)
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

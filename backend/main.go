@@ -113,6 +113,9 @@ func main() {
 	api.POST("/biteship/webhook", controllers.BiteshipWebhook)
 	api.GET("/biteship/tracking/:id", controllers.GetTracking)
 
+	// --- Midtrans Payment Webhook (Public) ---
+	api.POST("/midtrans/webhook", controllers.MidtransWebhook)
+
 	// --- Users (Admin/Owner) ---
 	userRoutes := api.Group("/users")
 	userRoutes.Use(middleware.AuthRequired())

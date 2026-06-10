@@ -235,23 +235,35 @@ class CartController extends Controller
 
     /**
      * Proses checkout — kirim order ke Go backend.
+     * Supports two flows:
+     * 1. Midtrans Online: No proof required, returns snapToken for Snap popup
+     * 2. Transfer Bank Manual: Proof upload required, redirect to dashboard
      */
     public function checkout(Request $request)
     {
-        $request->validate([
-            'bank' => 'required|string',
+        $paymentType = $request->input('payment_type', 'manual'); // 'midtrans' or 'manual'
+
+        // Validation rules differ by payment type
+        $rules = [
             'address' => 'required|string',
             'phone' => 'required|string',
             'courier' => 'required|string',
-            'proof' => 'required|file|image|max:4096',
             'biteship_area_id' => 'nullable|string',
             'shipping_cost' => 'nullable|numeric',
             'courier_code' => 'nullable|string',
             'courier_service_code' => 'nullable|string',
-        ]);
+            'payment_type' => 'required|string|in:midtrans,manual',
+        ];
+
+        if ($paymentType === 'manual') {
+            $rules['bank'] = 'required|string';
+            $rules['proof'] = 'required|file|image|max:4096';
+        }
+
+        $request->validate($rules);
 
         $proofPath = null;
-        if ($request->hasFile('proof')) {
+        if ($paymentType === 'manual' && $request->hasFile('proof')) {
             $proofPath = $request->file('proof')->store('proofs', 'public');
         }
 
@@ -263,6 +275,9 @@ class CartController extends Controller
 
         $cart = session('cart', []);
         if (empty($cart)) {
+            if ($paymentType === 'midtrans') {
+                return response()->json(['error' => 'Keranjang kosong.'], 400);
+            }
             return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
         }
 
@@ -285,11 +300,16 @@ class CartController extends Controller
         $tax = floor($subtotal * 0.11);
         $totalProduct = $subtotal + $tax;
 
+        // Determine payment method label for backend
+        $paymentMethod = $paymentType === 'midtrans'
+            ? 'Midtrans Online'
+            : 'Transfer Bank ' . $request->input('bank', 'BCA');
+
         $result = $this->api->createOrder(session('auth_token'), [
             'phone'              => $logistic['phone'],
             'address'            => $logistic['address'],
             'shippingMethod'     => $logistic['courier'],
-            'paymentMethod'      => 'Transfer Bank ' . $request->input('bank'),
+            'paymentMethod'      => $paymentMethod,
             'biteshipAreaId'     => $request->input('biteship_area_id', ''),
             'shippingCost'       => (int) $request->input('shipping_cost', 0),
             'courierCode'        => $request->input('courier_code', ''),
@@ -300,10 +320,36 @@ class CartController extends Controller
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal membuat pesanan.';
+            if ($paymentType === 'midtrans') {
+                return response()->json(['error' => $error], 422);
+            }
             return back()->withErrors(['bank' => $error]);
         }
 
         $orderId = $result['data']['id'] ?? null;
+
+        // === MIDTRANS FLOW ===
+        if ($paymentType === 'midtrans') {
+            $snapToken = $result['data']['snapToken'] ?? null;
+
+            if (!$snapToken) {
+                return response()->json([
+                    'error' => 'Gagal mendapatkan token pembayaran dari Midtrans.',
+                    'orderId' => $orderId,
+                ], 500);
+            }
+
+            // Don't clear cart yet — only after payment is confirmed
+            // Cart will be cleared after Snap popup success callback
+
+            return response()->json([
+                'success' => true,
+                'orderId' => $orderId,
+                'snapToken' => $snapToken,
+            ]);
+        }
+
+        // === TRANSFER BANK MANUAL FLOW ===
         if ($orderId && $proofPath) {
             $proofUrl = asset('storage/' . $proofPath);
             $this->api->uploadProof(session('auth_token'), $orderId, $proofUrl);
@@ -348,5 +394,15 @@ class CartController extends Controller
 
             session(['checkout_logistics' => $logistic]);
         }
+    }
+
+    /**
+     * Clear cart after successful Midtrans payment.
+     * Called via AJAX from Snap popup success callback.
+     */
+    public function clearCart()
+    {
+        session()->forget(['cart', 'checkout_logistics']);
+        return response()->json(['success' => true]);
     }
 }
