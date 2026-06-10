@@ -21,7 +21,6 @@ type RegisterInput struct {
 	Name     string `json:"name"`
 	Phone    string `json:"phone"`
 	Email    string `json:"email"`
-	Gender   string `json:"gender"`
 }
 
 // LoginInput represents the request body for user login.
@@ -59,8 +58,8 @@ func Register(c *gin.Context) {
 
 	switch input.Role {
 	case "customer":
-		if input.Name == "" || input.Phone == "" || input.Email == "" || input.Gender == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi profil (nama, telepon, email, gender) untuk mendaftar sebagai customer"})
+		if input.Name == "" || input.Phone == "" || input.Email == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Lengkapi profil (nama, telepon, email) untuk mendaftar sebagai customer"})
 			return
 		}
 		customer := models.Customer{
@@ -69,7 +68,6 @@ func Register(c *gin.Context) {
 			Name:      input.Name,
 			Phone:     input.Phone,
 			Email:     input.Email,
-			Gender:    input.Gender,
 		}
 		if result := config.DB.Create(&customer); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat akun customer"})

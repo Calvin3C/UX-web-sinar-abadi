@@ -37,7 +37,6 @@ const profileForm = useForm({
     username: props.profile?.username || '',
     email: props.profile?.email || '',
     phone: props.profile?.phone || '',
-    gender: props.profile?.gender || '',
     password: '',
 });
 
@@ -317,7 +316,7 @@ const handleUploadProof = () => {
                             </div>
                             <div>
                                 <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: #0f172a;">{{ username }}</h3>
-                                <div style="font-size: 13px; color: #64748b;">Akun Reguler</div>
+                                <div style="font-size: 13px; color: #64748b;">Profil Saya</div>
                             </div>
                         </div>
                         
@@ -405,14 +404,6 @@ const handleUploadProof = () => {
                         <div class="form-group mb-4">
                             <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Nomor HP</label>
                             <input type="text" v-model="profileForm.phone" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
-                        </div>
-                        <div class="form-group mb-4">
-                            <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Jenis Kelamin</label>
-                            <select v-model="profileForm.gender" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
-                                <option value="">Pilih Jenis Kelamin</option>
-                                <option value="Laki-laki">Laki-laki</option>
-                                <option value="Perempuan">Perempuan</option>
-                            </select>
                         </div>
                         <div class="form-group mb-6">
                             <label class="form-label" style="font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; display: block;">Password Baru <span style="font-weight: 400; color: #94a3b8;">(Kosongkan jika tidak ingin mengubah)</span></label>

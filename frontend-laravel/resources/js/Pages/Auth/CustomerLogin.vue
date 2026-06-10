@@ -21,7 +21,7 @@ const handleLogin = () => {
             <div class="container">
                 <div class="auth-container">
                     <div class="auth-header">
-                        <h2>Login Autentikasi</h2>
+                        <h2>Login</h2>
                         <p style="color:#cbd5e1; font-size:14px;">
                             Login untuk mulai berbelanja
                         </p>

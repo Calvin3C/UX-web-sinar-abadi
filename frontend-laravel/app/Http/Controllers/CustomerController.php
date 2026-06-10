@@ -153,7 +153,6 @@ class CustomerController extends Controller
             'username' => 'required|string',
             'email' => 'nullable|string',
             'phone' => 'nullable|string',
-            'gender' => 'nullable|string',
             'password' => 'nullable|string|min:3',
         ]);
 
@@ -162,7 +161,6 @@ class CustomerController extends Controller
             'username' => $request->input('username') ?? '',
             'email' => $request->input('email') ?? '',
             'phone' => $request->input('phone') ?? '',
-            'gender' => $request->input('gender') ?? '',
             'password' => $request->input('password') ?? '',
         ];
 

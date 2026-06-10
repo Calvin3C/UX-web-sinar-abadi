@@ -93,7 +93,6 @@ class AuthController extends Controller
             $rules['name']   = 'required|string|min:2';
             $rules['phone']  = 'required|string|max:50';
             $rules['email']  = 'required|email|max:200';
-            $rules['gender'] = 'required|string|in:Laki-laki,Perempuan';
         }
 
         $request->validate($rules);
@@ -104,8 +103,7 @@ class AuthController extends Controller
             $role,
             $request->input('name', ''),
             $request->input('phone', ''),
-            $request->input('email', ''),
-            $request->input('gender', '')
+            $request->input('email', '')
         );
 
         if (!$result['success']) {

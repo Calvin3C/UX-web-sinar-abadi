@@ -10,7 +10,6 @@ const registerForm = useForm({
     password_confirmation: '',
     phone: '',
     email: '',
-    gender: 'Laki-laki',
 });
 
 const handleRegister = () => {
@@ -101,20 +100,7 @@ const handleRegister = () => {
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="form-label">Gender</label>
-                                <select 
-                                    class="form-input" 
-                                    v-model="registerForm.gender"
-                                    required
-                                >
-                                    <option value="Laki-laki">Laki-laki</option>
-                                    <option value="Perempuan">Perempuan</option>
-                                </select>
-                                <div v-if="registerForm.errors.gender" class="text-danger mt-2" style="font-size: 13px;">
-                                    {{ registerForm.errors.gender }}
-                                </div>
-                            </div>
+
 
                             <div class="form-group">
                                 <label class="form-label">Username</label>

@@ -41,10 +41,7 @@ class ApiService
         ];
     }
 
-    /**
-     * Register a new account.
-     */
-    public function register(string $username, string $password, string $role, string $name = '', string $phone = '', string $email = '', string $gender = ''): array
+    public function register(string $username, string $password, string $role, string $name = '', string $phone = '', string $email = ''): array
     {
         $response = Http::timeout(10)->post("{$this->baseUrl}/register", [
             'username' => $username,
@@ -53,7 +50,6 @@ class ApiService
             'name'     => $name,
             'phone'    => $phone,
             'email'    => $email,
-            'gender'   => $gender,
         ]);
 
         return [

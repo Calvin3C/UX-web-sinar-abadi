@@ -253,7 +253,6 @@ type UpdateProfileInput struct {
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
-	Gender   string `json:"gender"`
 	Password string `json:"password"`
 }
 
@@ -379,7 +378,6 @@ func UpdateProfile(c *gin.Context) {
 	user.Name = input.Name
 	user.Email = input.Email
 	user.Phone = input.Phone
-	user.Gender = input.Gender
 
 	// Update password if provided
 	if input.Password != "" {
