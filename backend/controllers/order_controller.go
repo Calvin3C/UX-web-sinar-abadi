@@ -500,6 +500,58 @@ func CompleteOrderCustomer(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Webhook processed"})
 }
 
+// CancelOrderCustomer allows a customer to cancel their own pending order.
+// This is used when the user closes the Midtrans popup without completing payment.
+// PUT /api/orders/:id/cancel
+func CancelOrderCustomer(c *gin.Context) {
+	orderID := c.Param("id")
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var order models.Order
+	if result := config.DB.Preload("Items").Where("id = ? AND customer_id = ?", orderID, userID).First(&order); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pesanan tidak ditemukan atau Anda tidak memiliki akses"})
+		return
+	}
+
+	// Only allow cancellation of pending orders
+	if order.Status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Hanya pesanan dengan status pending yang dapat dibatalkan"})
+		return
+	}
+
+	// Restore stock
+	for _, item := range order.Items {
+		var product models.Product
+		if err := config.DB.Where("id = ?", item.ProductID).First(&product).Error; err == nil {
+			config.DB.Model(&product).Update("sold", product.Sold-item.Qty)
+		}
+		var currentStock int
+		config.DB.Model(&models.StockLog{}).
+			Where("product_id = ?", item.ProductID).
+			Select("COALESCE(SUM(qty_changed), 0)").
+			Scan(&currentStock)
+
+		config.DB.Create(&models.StockLog{
+			ProductID:   item.ProductID,
+			ChangeType:  "addition",
+			QtyChanged:  item.Qty,
+			FinalStock:  currentStock + item.Qty,
+			Description: fmt.Sprintf("Pembatalan oleh Customer (Order %s)", order.ID),
+		})
+	}
+
+	config.DB.Model(&order).Update("status", "cancelled")
+
+	log.Printf("🚫 Order %s cancelled by customer (Midtrans popup closed)", orderID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil dibatalkan"})
+}
+
 // processBiteshipOrderCreation connects to Biteship and creates an order 
 // when the order status becomes success.
 func processBiteshipOrderCreation(order *models.Order) {
@@ -669,6 +721,33 @@ func MidtransWebhook(c *gin.Context) {
 		now := time.Now()
 		paymentUpdates["payment_status"] = "Success"
 		paymentUpdates["paid_at"] = &now
+
+		// If order was cancelled (user closed popup but actually paid), re-deduct stock
+		if order.Status == "cancelled" {
+			log.Printf("🔄 Order %s: reactivating cancelled order (payment received via webhook)", orderID)
+			var orderItems []models.OrderItem
+			config.DB.Where("order_id = ?", orderID).Find(&orderItems)
+			for _, item := range orderItems {
+				var product models.Product
+				if err := config.DB.Where("id = ?", item.ProductID).First(&product).Error; err == nil {
+					config.DB.Model(&product).Update("sold", product.Sold+item.Qty)
+				}
+				var currentStock int
+				config.DB.Model(&models.StockLog{}).
+					Where("product_id = ?", item.ProductID).
+					Select("COALESCE(SUM(qty_changed), 0)").
+					Scan(&currentStock)
+
+				config.DB.Create(&models.StockLog{
+					ProductID:   item.ProductID,
+					ChangeType:  "deduction",
+					QtyChanged:  -item.Qty,
+					FinalStock:  currentStock - item.Qty,
+					Description: fmt.Sprintf("Reaktivasi Pembayaran Midtrans (Order %s)", orderID),
+				})
+			}
+		}
+
 		config.DB.Model(&order).Updates(map[string]interface{}{
 			"status":      "success",
 			"proof_uploaded": true,
@@ -676,6 +755,12 @@ func MidtransWebhook(c *gin.Context) {
 		log.Printf("✅ Order %s: pembayaran settlement berhasil", orderID)
 		processBiteshipOrderCreation(&order)
 	case "pending":
+		// Don't process pending webhook if order was already cancelled by customer
+		if order.Status == "cancelled" {
+			log.Printf("⏭️  Order %s: ignoring pending webhook (order already cancelled)", orderID)
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+			return
+		}
 		paymentUpdates["payment_status"] = "Pending"
 		log.Printf("⏳ Order %s: pembayaran pending", orderID)
 	case "deny", "cancel", "expire":

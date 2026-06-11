@@ -430,10 +430,11 @@ const handleCheckout = async () => {
             }
 
             if (data.snapToken) {
+                const createdOrderId = data.orderId;
                 // Open Midtrans Snap popup
                 window.snap.pay(data.snapToken, {
                     onSuccess: async function(result) {
-                        // Clear cart and redirect
+                        // Payment completed — clear cart and redirect
                         await fetch('/cart/clear', {
                             method: 'POST',
                             headers: {
@@ -447,27 +448,63 @@ const handleCheckout = async () => {
                             replace: true,
                         });
                     },
-                    onPending: function(result) {
-                        // Payment pending — clear cart and redirect
-                        fetch('/cart/clear', {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': csrfToken,
-                                'Accept': 'application/json',
-                            },
-                        });
-                        router.visit('/customer/dashboard', {
-                            method: 'get',
-                            replace: true,
-                        });
+                    onPending: async function(result) {
+                        // User closed popup after selecting payment method (QRIS/VA shown).
+                        // Cancel the order so they can go back and retry.
+                        // If user actually paid (e.g. scanned QRIS), the Midtrans webhook
+                        // will still process the payment and re-create the order.
+                        try {
+                            await fetch('/checkout/cancel', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ orderId: createdOrderId }),
+                            });
+                        } catch (e) {
+                            console.error('Failed to cancel order:', e);
+                        }
+                        isProcessingMidtrans.value = false;
+                        // User stays on payment page and can retry
                     },
-                    onError: function(result) {
+                    onError: async function(result) {
+                        // Payment failed — cancel the order and let user retry
+                        try {
+                            await fetch('/checkout/cancel', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ orderId: createdOrderId }),
+                            });
+                        } catch (e) {
+                            console.error('Failed to cancel order:', e);
+                        }
                         midtransError.value = 'Pembayaran gagal. Silakan coba lagi.';
                         isProcessingMidtrans.value = false;
                     },
-                    onClose: function() {
-                        // User closed the popup without finishing
+                    onClose: async function() {
+                        // User pressed the X button — they want to go back.
+                        // Cancel the order so stock is restored and user can retry.
+                        try {
+                            await fetch('/checkout/cancel', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': csrfToken,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ orderId: createdOrderId }),
+                            });
+                        } catch (e) {
+                            console.error('Failed to cancel order:', e);
+                        }
                         isProcessingMidtrans.value = false;
+                        // User stays on payment page and can retry
                     }
                 });
             } else {

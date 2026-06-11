@@ -53,6 +53,7 @@ Route::middleware('auth.api:customer')->group(function () {
     Route::get('/cart/payment', [CartController::class, 'paymentPage'])->name('cart.payment');
     Route::post('/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
     Route::post('/cart/clear', [CartController::class, 'clearCart'])->name('cart.clear');
+    Route::post('/checkout/cancel', [CartController::class, 'cancelMidtransOrder'])->name('cart.cancelMidtrans');
 });
 
 // =====================================================================

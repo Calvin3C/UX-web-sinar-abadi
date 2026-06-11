@@ -93,6 +93,7 @@ func main() {
 		orderRoutes.GET("", controllers.GetOrders) // role-based filtering inside handler
 		orderRoutes.GET("/:id", controllers.GetOrderByID)
 		orderRoutes.PUT("/:id/status", middleware.RoleRequired("admin", "owner"), controllers.UpdateOrderStatus)
+		orderRoutes.PUT("/:id/cancel", middleware.RoleRequired("customer"), controllers.CancelOrderCustomer)
 		orderRoutes.PUT("/:id/complete", middleware.RoleRequired("customer"), controllers.CompleteOrderCustomer)
 		orderRoutes.PUT("/:id/proof", middleware.RoleRequired("customer"), controllers.UploadProof)
 	}

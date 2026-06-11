@@ -405,4 +405,35 @@ class CartController extends Controller
         session()->forget(['cart', 'checkout_logistics']);
         return response()->json(['success' => true]);
     }
+
+    /**
+     * Cancel a Midtrans order when the user closes the Snap popup.
+     * This restores stock and allows the user to retry with a different payment method.
+     */
+    public function cancelMidtransOrder(Request $request)
+    {
+        $orderId = $request->input('orderId');
+        if (!$orderId) {
+            return response()->json(['error' => 'Order ID is required.'], 400);
+        }
+
+        $token = session('auth_token');
+        if (!$token) {
+            return response()->json(['error' => 'Unauthorized.'], 401);
+        }
+
+        // Call Go backend customer cancel endpoint
+        $baseUrl = rtrim(config('services.go_api.url', 'http://localhost:8080/api'), '/');
+        $response = \Illuminate\Support\Facades\Http::timeout(10)
+            ->withToken($token)
+            ->put("{$baseUrl}/orders/{$orderId}/cancel");
+
+        if ($response->successful()) {
+            return response()->json(['success' => true, 'message' => 'Pesanan dibatalkan.']);
+        }
+
+        return response()->json([
+            'error' => $response->json('error') ?? 'Gagal membatalkan pesanan.',
+        ], 422);
+    }
 }
