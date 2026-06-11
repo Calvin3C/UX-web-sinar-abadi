@@ -264,7 +264,7 @@ func CreateOrder(c *gin.Context) {
 	}
 
 	// Initiate Payment
-	payResult, err := paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total, customerNameStr, customerEmail, input.Phone, snapItems)
+	payResult, err := paymentSvc.InitiatePayment(orderID, input.PaymentMethod, order.Total, customerNameStr, customerEmail, input.Phone, input.Address, snapItems)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -425,90 +425,7 @@ func UpdateOrderStatus(c *gin.Context) {
 
 	// If payment is successful, create an order in Biteship
 	if input.Status == "success" {
-		var shipping models.Shipping
-		if err := config.DB.Where("order_id = ?", order.ID).First(&shipping).Error; err == nil {
-			// Check if shipping method uses Biteship
-			if shipping.BiteshipAreaID != "" && !strings.Contains(shipping.ShippingMethodName, "Ambil Di Toko") && !strings.Contains(shipping.ShippingMethodName, "Kurir Toko Sinar Abadi") {
-				
-				// Use stored courier codes from Biteship (courier_code & courier_service_code)
-				courierCompany := shipping.CourierCode
-				courierType := shipping.CourierServiceCode
-				
-				// Fallback: if codes are empty (legacy orders), try to parse from display name
-				if courierCompany == "" {
-					parts := strings.SplitN(shipping.ShippingMethodName, " ", 2)
-					courierCompany = strings.ToLower(parts[0])
-					if len(parts) > 1 {
-						courierType = strings.ToLower(parts[1])
-					}
-				}
-
-				// Build Items
-				var bItems []map[string]interface{}
-				config.DB.Preload("Items").First(&order, "id = ?", order.ID)
-				for _, it := range order.Items {
-					itemWeight := it.Weight
-					itemLength := it.Length
-					itemWidth := it.Width
-					itemHeight := it.Height
-
-					if itemWeight <= 0 || itemLength <= 0 || itemWidth <= 0 || itemHeight <= 0 {
-						// Fallback: look up product details from DB
-						var prod models.Product
-						if err := config.DB.Where("id = ?", it.ProductID).First(&prod).Error; err == nil {
-							if itemWeight <= 0 { itemWeight = prod.Weight }
-							if itemLength <= 0 { itemLength = prod.Length }
-							if itemWidth <= 0 { itemWidth = prod.Width }
-							if itemHeight <= 0 { itemHeight = prod.Height }
-						}
-					}
-					
-					if itemWeight <= 0 { itemWeight = 1000 } // fallback 1kg if still unknown
-					if itemLength <= 0 { itemLength = 1 }
-					if itemWidth <= 0 { itemWidth = 1 }
-					if itemHeight <= 0 { itemHeight = 1 }
-
-					bItems = append(bItems, map[string]interface{}{
-						"name":     it.Name,
-						"value":    it.Price,
-						"quantity": it.Qty,
-						"weight":   itemWeight,
-						"length":   itemLength,
-						"width":    itemWidth,
-						"height":   itemHeight,
-					})
-				}
-
-				originAreaID := "IDNP11IDNC250IDND2604IDZ65181" // Hardcoded Dampit area
-				biteshipResp, err := services.CreateOrder(
-					order.ID,
-					originAreaID,
-					shipping.BiteshipAreaID,
-					courierCompany,
-					courierType,
-					bItems,
-					order.CustomerName,
-					order.Phone,
-					shipping.DestinationAddress,
-				)
-				if err == nil && biteshipResp != nil {
-					// Extract IDs
-					biteshipOrderID, _ := biteshipResp["id"].(string)
-					
-					waybillID := ""
-					if courierObj, ok := biteshipResp["courier"].(map[string]interface{}); ok {
-						waybillID, _ = courierObj["waybill_id"].(string)
-					}
-
-					// Update tracking status
-					config.DB.Model(&shipping).Updates(map[string]interface{}{
-						"biteship_order_id": biteshipOrderID,
-						"waybill_id":        waybillID,
-					})
-					config.DB.Model(&order).Update("shipping_status", "Kurir Sedang Dijadwalkan")
-				}
-			}
-		}
+		processBiteshipOrderCreation(&order)
 	}
 
 	// Reload for response
@@ -580,7 +497,98 @@ func CompleteOrderCustomer(c *gin.Context) {
 
 	config.DB.Model(&order).Update("status", "COMPLETED")
 
-	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil diselesaikan", "order": order})
+	c.JSON(http.StatusOK, gin.H{"message": "Webhook processed"})
+}
+
+// processBiteshipOrderCreation connects to Biteship and creates an order 
+// when the order status becomes success.
+func processBiteshipOrderCreation(order *models.Order) {
+	var shipping models.Shipping
+	if err := config.DB.Where("order_id = ?", order.ID).First(&shipping).Error; err == nil {
+		// Check if shipping method uses Biteship
+		if shipping.BiteshipAreaID != "" && !strings.Contains(shipping.ShippingMethodName, "Ambil Di Toko") && !strings.Contains(shipping.ShippingMethodName, "Kurir Toko Sinar Abadi") {
+			
+			// Use stored courier codes from Biteship (courier_code & courier_service_code)
+			courierCompany := shipping.CourierCode
+			courierType := shipping.CourierServiceCode
+			
+			// Fallback: if codes are empty (legacy orders), try to parse from display name
+			if courierCompany == "" {
+				parts := strings.SplitN(shipping.ShippingMethodName, " ", 2)
+				courierCompany = strings.ToLower(parts[0])
+				if len(parts) > 1 {
+					courierType = strings.ToLower(parts[1])
+				}
+			}
+
+			// Build Items
+			var bItems []map[string]interface{}
+			config.DB.Preload("Items").First(order, "id = ?", order.ID)
+			for _, it := range order.Items {
+				itemWeight := it.Weight
+				itemLength := it.Length
+				itemWidth := it.Width
+				itemHeight := it.Height
+
+				if itemWeight <= 0 || itemLength <= 0 || itemWidth <= 0 || itemHeight <= 0 {
+					// Fallback: look up product details from DB
+					var prod models.Product
+					if err := config.DB.Where("id = ?", it.ProductID).First(&prod).Error; err == nil {
+						if itemWeight <= 0 { itemWeight = prod.Weight }
+						if itemLength <= 0 { itemLength = prod.Length }
+						if itemWidth <= 0 { itemWidth = prod.Width }
+						if itemHeight <= 0 { itemHeight = prod.Height }
+					}
+				}
+				
+				if itemWeight <= 0 { itemWeight = 1000 } // fallback 1kg if still unknown
+				if itemLength <= 0 { itemLength = 1 }
+				if itemWidth <= 0 { itemWidth = 1 }
+				if itemHeight <= 0 { itemHeight = 1 }
+
+				bItems = append(bItems, map[string]interface{}{
+					"name":     it.Name,
+					"value":    it.Price,
+					"quantity": it.Qty,
+					"weight":   itemWeight,
+					"length":   itemLength,
+					"width":    itemWidth,
+					"height":   itemHeight,
+				})
+			}
+
+			originAreaID := "IDNP11IDNC250IDND2604IDZ65181" // Hardcoded Dampit area
+			biteshipResp, err := services.CreateOrder(
+				order.ID,
+				originAreaID,
+				shipping.BiteshipAreaID,
+				courierCompany,
+				courierType,
+				bItems,
+				order.CustomerName,
+				order.Phone,
+				shipping.DestinationAddress,
+			)
+			if err == nil && biteshipResp != nil {
+				// Extract IDs
+				biteshipOrderID, _ := biteshipResp["id"].(string)
+				
+				waybillID := ""
+				if courierObj, ok := biteshipResp["courier"].(map[string]interface{}); ok {
+					waybillID, _ = courierObj["waybill_id"].(string)
+				}
+
+				// Update tracking status
+				config.DB.Model(&shipping).Updates(map[string]interface{}{
+					"biteship_order_id": biteshipOrderID,
+					"waybill_id":        waybillID,
+				})
+				config.DB.Model(order).Update("shipping_status", "Kurir Sedang Dijadwalkan")
+			} else if err != nil {
+				log.Printf("❌ Failed to create Biteship order for %s: %v", order.ID, err)
+			}
+		}
+	}
 }
 
 // MidtransWebhook handles payment notification callbacks from Midtrans.
@@ -655,6 +663,7 @@ func MidtransWebhook(c *gin.Context) {
 				"proof_uploaded": true,
 			})
 			log.Printf("✅ Order %s: pembayaran berhasil (capture/accept)", orderID)
+			processBiteshipOrderCreation(&order)
 		}
 	case "settlement":
 		now := time.Now()
@@ -665,6 +674,7 @@ func MidtransWebhook(c *gin.Context) {
 			"proof_uploaded": true,
 		})
 		log.Printf("✅ Order %s: pembayaran settlement berhasil", orderID)
+		processBiteshipOrderCreation(&order)
 	case "pending":
 		paymentUpdates["payment_status"] = "Pending"
 		log.Printf("⏳ Order %s: pembayaran pending", orderID)

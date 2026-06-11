@@ -53,7 +53,7 @@ type SnapResponse struct {
 }
 
 // CreateSnapTransaction creates a Midtrans Snap transaction and returns the token.
-func (s *MidtransService) CreateSnapTransaction(orderID string, amount int64, customerName string, customerEmail string, customerPhone string, items []SnapItem) (*SnapResponse, error) {
+func (s *MidtransService) CreateSnapTransaction(orderID string, amount int64, customerName string, customerEmail string, customerPhone string, shippingAddress string, items []SnapItem) (*SnapResponse, error) {
 	if s.ServerKey == "" {
 		return nil, fmt.Errorf("MIDTRANS_SERVER_KEY belum dikonfigurasi")
 	}
@@ -76,6 +76,11 @@ func (s *MidtransService) CreateSnapTransaction(orderID string, amount int64, cu
 			"first_name": customerName,
 			"email":      customerEmail,
 			"phone":      customerPhone,
+			"shipping_address": map[string]interface{}{
+				"first_name": customerName,
+				"phone":      customerPhone,
+				"address":    shippingAddress,
+			},
 		},
 		"item_details": items,
 		"credit_card": map[string]interface{}{

@@ -682,20 +682,25 @@ const handleDeleteAdmin = (adminUsername) => {
                                     <td class="text-center">
                                         <!-- Validasi Pembayaran untuk Pending -->
                                         <div v-if="order.status?.toLowerCase() === 'pending'" class="d-flex align-center justify-center gap-2">
-                                            <button 
-                                                @click="updateOrderStatus(order.id, 'success')"
-                                                class="btn btn-primary"
-                                                style="padding: 4px 10px; font-size:11px; background:#0284c7; border-color:#0284c7; border-radius: 4px;"
-                                            >
-                                                Validasi
-                                            </button>
-                                            <button 
-                                                @click="updateOrderStatus(order.id, 'cancelled')"
-                                                class="btn btn-outline"
-                                                style="padding: 4px 10px; font-size:11px; color: #dc2626; border-color: #dc2626; border-radius: 4px;"
-                                            >
-                                                Tolak
-                                            </button>
+                                            <template v-if="order.payment && (order.payment.paymentMethod?.toLowerCase().includes('midtrans') || order.payment.paymentMethod?.toLowerCase().includes('online'))">
+                                                <span style="color: #64748b; font-size: 11px; font-style: italic;">Menunggu<br>Sistem Midtrans</span>
+                                            </template>
+                                            <template v-else>
+                                                <button 
+                                                    @click="updateOrderStatus(order.id, 'success')"
+                                                    class="btn btn-primary"
+                                                    style="padding: 4px 10px; font-size:11px; background:#0284c7; border-color:#0284c7; border-radius: 4px;"
+                                                >
+                                                    Validasi
+                                                </button>
+                                                <button 
+                                                    @click="updateOrderStatus(order.id, 'cancelled')"
+                                                    class="btn btn-outline"
+                                                    style="padding: 4px 10px; font-size:11px; color: #dc2626; border-color: #dc2626; border-radius: 4px;"
+                                                >
+                                                    Tolak
+                                                </button>
+                                            </template>
                                         </div>
 
                                         <!-- Logistik dipindah ke admin -->

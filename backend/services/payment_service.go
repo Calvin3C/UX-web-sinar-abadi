@@ -20,13 +20,13 @@ type InitiatePaymentResult struct {
 }
 
 // InitiatePayment handles payment initiation for both manual and Midtrans methods.
-func (s *PaymentService) InitiatePayment(orderID string, method string, amount int64, customerName string, customerEmail string, customerPhone string, items []SnapItem) (*InitiatePaymentResult, error) {
+func (s *PaymentService) InitiatePayment(orderID string, method string, amount int64, customerName string, customerEmail string, customerPhone string, shippingAddress string, items []SnapItem) (*InitiatePaymentResult, error) {
 	methodLower := strings.ToLower(method)
 
 	// ── Midtrans Online Payment ──
 	if strings.Contains(methodLower, "midtrans") || strings.Contains(methodLower, "online") {
 		midtrans := NewMidtransService()
-		snapResp, err := midtrans.CreateSnapTransaction(orderID, amount, customerName, customerEmail, customerPhone, items)
+		snapResp, err := midtrans.CreateSnapTransaction(orderID, amount, customerName, customerEmail, customerPhone, shippingAddress, items)
 		if err != nil {
 			return nil, fmt.Errorf("gagal membuat transaksi Midtrans: %v", err)
 		}
