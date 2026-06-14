@@ -89,13 +89,13 @@ func seedProducts(db *gorm.DB) {
 		// =====================================================================
 		{Product: models.Product{ID: "P-001", Category: "Semen", Name: "Semen Gresik 40 kg", Weight: 40000, Price: 59000, Sold: 70, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_gresik.png"}, InitialStock: 30},
 		{Product: models.Product{ID: "P-002", Category: "Semen", Name: "Semen Gresik 50 kg", Weight: 50000, Price: 72000, Sold: 40, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_gresik.png"}, InitialStock: 25},
-		{Product: models.Product{ID: "P-003", Category: "Semen", Name: "Semen Merah Putih 40 kg", Weight: 40000, Price: 47000, Sold: 113, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_merah_putih.png"}, InitialStock: 7},
-		{Product: models.Product{ID: "P-004", Category: "Semen", Name: "Semen Merah Putih 50 kg", Weight: 50000, Price: 57000, Sold: 90, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_merah_putih.png"}, InitialStock: 20},
+		{Product: models.Product{ID: "P-003", Category: "Semen", Name: "Semen Merah Putih 40 kg", Weight: 40000, Price: 47000, Sold: 113, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_merah_putih.webp"}, InitialStock: 7},
+		{Product: models.Product{ID: "P-004", Category: "Semen", Name: "Semen Merah Putih 50 kg", Weight: 50000, Price: 57000, Sold: 90, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_merah_putih.webp"}, InitialStock: 20},
 		{Product: models.Product{ID: "P-005", Category: "Semen", Name: "Semen Putih Panda 40 kg", Weight: 40000, Price: 65000, Sold: 0, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_panda.png"}, InitialStock: 80},
 		{Product: models.Product{ID: "P-006", Category: "Semen", Name: "Semen Putih Tiga Roda 40 kg", Weight: 40000, Price: 120000, Sold: 81, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_tiga_roda.png"}, InitialStock: 18},
-		{Product: models.Product{ID: "P-007", Category: "Semen", Name: "Semen Singa Merah 40 kg", Weight: 40000, Price: 45000, Sold: 30, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_singa_merah.png"}, InitialStock: 70},
-		{Product: models.Product{ID: "P-008", Category: "Semen", Name: "Semen Singa Merah 50 kg", Weight: 50000, Price: 56000, Sold: 15, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_singa_merah.png"}, InitialStock: 40},
-		{Product: models.Product{ID: "P-009", Category: "Semen", Name: "Semen Perekat Bata Ringan Eco 20 kg", Weight: 20000, Price: 65000, Sold: 0, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_perekat_eco.png"}, InitialStock: 70},
+		{Product: models.Product{ID: "P-007", Category: "Semen", Name: "Semen Singa Merah 40 kg", Weight: 40000, Price: 45000, Sold: 30, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_singa_merah.jpg"}, InitialStock: 70},
+		{Product: models.Product{ID: "P-008", Category: "Semen", Name: "Semen Singa Merah 50 kg", Weight: 50000, Price: 56000, Sold: 15, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_singa_merah.jpg"}, InitialStock: 40},
+		{Product: models.Product{ID: "P-009", Category: "Semen", Name: "Semen Perekat Bata Ringan Eco 20 kg", Weight: 20000, Price: 65000, Sold: 0, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_perekat_eco.jpg"}, InitialStock: 70},
 		{Product: models.Product{ID: "P-010", Category: "Semen", Name: "Semen Perekat Bata Ringan Drymix 20 kg", Weight: 20000, Price: 75000, Sold: 0, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_drymix.png"}, InitialStock: 70},
 		{Product: models.Product{ID: "P-011", Category: "Semen", Name: "Semen Sika Perekat Granit 20 kg", Weight: 20000, Price: 110000, Sold: 0, IsLarge: true, ImageURL: "http://localhost:8000/images/products/semen_sika_granit.png"}, InitialStock: 50},
 
@@ -219,11 +219,11 @@ func seedProducts(db *gorm.DB) {
 		// =====================================================================
 		// ELECTRICAL (IsLarge = false)
 		// =====================================================================
-		{Product: models.Product{ID: "P-096", Category: "Listrik", Name: "Lampu Philips LED 5 Watt", Weight: 60, Price: 25000, Sold: 0, IsLarge: false, ImageURL: "https://placehold.co/400x300/d97706/white?text=Philips+5W"}, InitialStock: 300},
-		{Product: models.Product{ID: "P-097", Category: "Listrik", Name: "Lampu Philips LED 7 Watt", Weight: 80, Price: 29000, Sold: 0, IsLarge: false, ImageURL: "https://placehold.co/400x300/d97706/white?text=Philips+7W"}, InitialStock: 300},
-		{Product: models.Product{ID: "P-098", Category: "Listrik", Name: "Lampu Philips LED 9 Watt", Weight: 80, Price: 35000, Sold: 0, IsLarge: false, ImageURL: "https://placehold.co/400x300/d97706/white?text=Philips+9W"}, InitialStock: 250},
-		{Product: models.Product{ID: "P-099", Category: "Listrik", Name: "Lampu Philips LED 11 Watt", Weight: 100, Price: 42500, Sold: 0, IsLarge: false, ImageURL: "https://placehold.co/400x300/d97706/white?text=Philips+11W"}, InitialStock: 200},
-		{Product: models.Product{ID: "P-100", Category: "Listrik", Name: "Lampu Philips LED 13 Watt", Weight: 100, Price: 49500, Sold: 0, IsLarge: false, ImageURL: "https://placehold.co/400x300/d97706/white?text=Philips+13W"}, InitialStock: 200},
+		{Product: models.Product{ID: "P-096", Category: "Listrik", Name: "Lampu Philips LED 5 Watt", Weight: 60, Price: 25000, Sold: 0, IsLarge: false, ImageURL: "http://localhost:8000/images/products/lampu_philips_5w.jpg"}, InitialStock: 300},
+		{Product: models.Product{ID: "P-097", Category: "Listrik", Name: "Lampu Philips LED 7 Watt", Weight: 80, Price: 29000, Sold: 0, IsLarge: false, ImageURL: "http://localhost:8000/images/products/lampu_philips_7w.webp"}, InitialStock: 300},
+		{Product: models.Product{ID: "P-098", Category: "Listrik", Name: "Lampu Philips LED 9 Watt", Weight: 80, Price: 35000, Sold: 0, IsLarge: false, ImageURL: "http://localhost:8000/images/products/lampu_philips_9w.webp"}, InitialStock: 250},
+		{Product: models.Product{ID: "P-099", Category: "Listrik", Name: "Lampu Philips LED 11 Watt", Weight: 100, Price: 42500, Sold: 0, IsLarge: false, ImageURL: "http://localhost:8000/images/products/lampu_philips_11w.jpg"}, InitialStock: 200},
+		{Product: models.Product{ID: "P-100", Category: "Listrik", Name: "Lampu Philips LED 13 Watt", Weight: 100, Price: 49500, Sold: 0, IsLarge: false, ImageURL: "http://localhost:8000/images/products/lampu_philips_13w.jpg"}, InitialStock: 200},
 
 		// =====================================================================
 		// KUAS CAT (IsLarge = false)
