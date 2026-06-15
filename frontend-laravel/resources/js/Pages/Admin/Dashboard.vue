@@ -397,7 +397,7 @@ const getStatusLabel = (status) => {
                                                     @click="handleMarkShipping(order.id)"
                                                     style="padding: 6px 18px; font-size: 12px; font-weight: 700; color: white; background: #e11d48; border: none; border-radius: 6px; cursor: pointer;"
                                                 >
-                                                    Kirim Pesanan
+                                                    Cetak Resi
                                                 </button>
                                                 <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
                                             </template>

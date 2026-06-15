@@ -20,6 +20,7 @@ type Product struct {
 	IsLarge     bool      `gorm:"default:false" json:"isLarge"`   // true = heavy/bulky → shipping restriction
 	ImageURL    string           `gorm:"size:500" json:"img"`            // JSON key "img" matches frontend
 	Variants    []ProductVariant `gorm:"foreignKey:ProductID" json:"variants"`
+	WarehouseStocks []WarehouseStock `gorm:"foreignKey:ProductID" json:"warehouseStocks"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -43,6 +44,7 @@ type ProductResponse struct {
 	IsLarge     bool      `json:"isLarge"`
 	ImageURL    string           `json:"img"`
 	Variants    []ProductVariant `json:"variants"`
+	WarehouseStocks []WarehouseStock `json:"warehouseStocks"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }

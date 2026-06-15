@@ -389,4 +389,68 @@ class ApiService
             'data'    => $response->json(),
         ];
     }
+
+    // =====================================================================
+    // WAREHOUSES & INBOUNDS
+    // =====================================================================
+
+    public function getWarehouses(string $token): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/warehouses");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json()['data'] ?? [],
+        ];
+    }
+
+    public function createWarehouse(string $token, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->post("{$this->baseUrl}/warehouses", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    public function getInbounds(string $token): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/inbounds");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json()['data'] ?? [],
+        ];
+    }
+
+    public function createInbound(string $token, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->post("{$this->baseUrl}/inbounds", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
+
+    public function updateInboundStatus(string $token, string $id, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/inbounds/{$id}/status", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
 }

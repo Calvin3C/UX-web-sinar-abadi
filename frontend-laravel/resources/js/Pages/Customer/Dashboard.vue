@@ -183,6 +183,16 @@ const completedOrders = computed(() => {
     });
 });
 
+const expandedRiwayatOrders = ref([]);
+const toggleRiwayatOrder = (orderId) => {
+    const index = expandedRiwayatOrders.value.indexOf(orderId);
+    if (index === -1) {
+        expandedRiwayatOrders.value.push(orderId);
+    } else {
+        expandedRiwayatOrders.value.splice(index, 1);
+    }
+};
+
 const orderSearchQuery = ref('');
 const orderDateFilter = ref('');
 const orderStatusFilter = ref('Semua');
@@ -505,61 +515,146 @@ const handleUploadProof = () => {
                         :key="order.id" 
                         class="order-card"
                     >
-                        <div class="order-header">
-                            <div>
-                                <div style="font-size:12px; color:var(--color-text-muted);">ID Pesanan</div>
-                                <div style="font-weight: 800; font-size: 16px; color: var(--color-text-main);">
-                                    {{ order.id }}
-                                </div>
-                                <div style="font-size: 12px; color: var(--color-text-muted); margin-top:4px;">
-                                    Dipesan pada: {{ formatDate(order.createdAt) }}
+                        <div class="order-header" 
+                             :style="activeMenu === 'riwayat' ? 'cursor: pointer; transition: background-color 0.2s; padding: 16px; border-radius: 8px;' : ''"
+                             @click="activeMenu === 'riwayat' ? toggleRiwayatOrder(order.id) : null"
+                             :onmouseover="activeMenu === 'riwayat' ? 'this.style.backgroundColor=\'#f8fafc\'' : ''"
+                             :onmouseout="activeMenu === 'riwayat' ? 'this.style.backgroundColor=\'transparent\'' : ''"
+                        >
+                            <div class="d-flex align-center gap-3">
+                                <svg v-if="activeMenu === 'riwayat'" :style="{ transform: expandedRiwayatOrders.includes(order.id) ? 'rotate(90deg)' : 'rotate(0)' }" style="transition: transform 0.2s; color: #94a3b8;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                <div>
+                                    <div style="font-size:12px; color:var(--color-text-muted);">ID Pesanan</div>
+                                    <div style="font-weight: 800; font-size: 16px; color: var(--color-text-main);">
+                                        {{ order.id }}
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--color-text-muted); margin-top:4px;">
+                                        Dipesan pada: {{ formatDate(order.createdAt) }}
+                                    </div>
                                 </div>
                             </div>
                             <div class="d-flex flex-column align-end gap-2">
-                                <span class="status-pill" :class="getStatusClass(order.status)">
+                                <span class="status-pill" :class="getStatusClass(order.status)" style="padding: 6px 14px; font-size: 12px; font-weight: 700;">
                                     {{ getStatusLabel(order.status) }}
                                 </span>
-                                <div style="font-size: 12px; font-weight:700; color: var(--color-text-muted);">
+                                <div style="font-size: 12px; font-weight:600; color: #64748b;">
                                     Pembayaran: {{ order.payment?.paymentMethod || '-' }}
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Items Table -->
-                        <table class="order-items-table">
-                            <tbody>
-                                <tr v-for="item in order.items" :key="item.productId">
-                                    <td>
-                                        <div style="font-weight: 600;">{{ item.name }}</div>
-                                        <div v-if="item.color" style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">Warna: <span style="font-weight: 500;">{{ item.color }}</span></div>
-                                    </td>
-                                    <td class="text-right" style="color: var(--color-text-muted);">
-                                        {{ item.qty }}x @ {{ formatPrice(item.price) }}
-                                    </td>
-                                    <td class="text-right" style="font-weight: 700; width:120px;">
-                                        {{ formatPrice(item.price * item.qty) }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <!-- Expandable Body -->
+                        <div v-if="activeMenu !== 'riwayat' || expandedRiwayatOrders.includes(order.id)">
+                            
+                            <!-- LAYOUT RIWAYAT SELESAI -->
+                            <div v-if="activeMenu === 'riwayat'" style="margin-top: 24px;">
+                                <div class="d-flex gap-4 mb-4 flex-wrap" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <div style="flex: 1; min-width: 120px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">ID Order</div>
+                                        <div style="font-weight: 600; color: #0f172a;">{{ order.id }}</div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 150px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Nama Pelanggan</div>
+                                        <div style="font-weight: 600; color: #0f172a;">{{ profile?.name || '-' }}</div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 150px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">No HP / WhatsApp</div>
+                                        <div style="font-weight: 600; color: #0f172a;">{{ profile?.phone || '-' }}</div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 120px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Tanggal</div>
+                                        <div style="font-weight: 600; color: #0f172a;">{{ formatDate(order.createdAt) }}</div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 100px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Status</div>
+                                        <span class="status-pill success" style="display: inline-block; padding: 4px 12px; font-weight: 700; background: #dcfce7; color: #166534; border: none;">Selesai</span>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-4 mb-6 flex-wrap" style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <div style="flex: 1; min-width: 250px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Alamat Pengiriman</div>
+                                        <div style="font-weight: 600; color: #0f172a; line-height: 1.5;">{{ order.address || '-' }}</div>
+                                    </div>
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Metode Pengiriman</div>
+                                        <div style="font-weight: 600; color: #0f172a;">{{ order.shippingMethod || '-' }}</div>
+                                        <div v-if="order.shipping?.waybillId" style="font-size: 12px; margin-top: 4px; color: #475569;">
+                                            <span style="font-weight: 600; color: #0f172a;">Resi:</span> {{ order.shipping.waybillId }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="font-weight: 800; color: #0f172a; margin-bottom: 12px; font-size: 16px;">Daftar Item Dibeli</div>
+                                <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                                    <table class="data-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                                        <thead>
+                                            <tr style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
+                                                <th style="padding: 16px; text-align: left; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Produk</th>
+                                                <th style="padding: 16px; text-align: left; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Varian</th>
+                                                <th style="padding: 16px; text-align: center; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Qty</th>
+                                                <th style="padding: 16px; text-align: right; font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase;">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="item in order.items" :key="item.id || item.productId" style="border-bottom: 1px solid #e2e8f0;">
+                                                <td style="padding: 16px; font-weight: 600; color: #0f172a;">{{ item.name }}</td>
+                                                <td style="padding: 16px; color: #475569;">{{ item.color || '-' }}</td>
+                                                <td style="padding: 16px; text-align: center; font-weight: 600; color: #0f172a;">{{ item.qty }}</td>
+                                                <td style="padding: 16px; text-align: right; font-weight: 600; color: #0f172a;">{{ formatPrice(item.price * item.qty) }}</td>
+                                            </tr>
+                                            <tr style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
+                                                <td colspan="3" class="text-right" style="padding: 16px; font-weight: 800; color: #0f172a;">Ongkos Kirim:</td>
+                                                <td class="text-right" style="padding: 16px; font-weight: 600; color: #64748b;">{{ formatPrice(order.shipping?.shippingCost || 0) }}</td>
+                                            </tr>
+                                            <tr style="background: #f8fafc;">
+                                                <td colspan="3" class="text-right" style="padding: 16px; font-weight: 800; color: #0f172a;">Total Tagihan:</td>
+                                                <td class="text-right" style="padding: 16px; font-weight: 800; color: #dc2626; font-size: 16px;">{{ formatPrice(order.total) }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- LAYOUT PESANAN AKTIF -->
+                            <div v-else>
+                        <!-- Items List -->
+                        <div style="margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                            <div v-for="(item, idx) in order.items" :key="item.productId" 
+                                 class="d-flex justify-between align-center flex-wrap gap-3"
+                                 :style="idx !== order.items.length - 1 ? 'border-bottom: 1px dashed #e2e8f0; padding-bottom: 16px; margin-bottom: 16px;' : 'padding-bottom: 16px;'"
+                            >
+                                <div style="flex: 1; min-width: 200px;">
+                                    <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 4px;">{{ item.name }}</div>
+                                    <div v-if="item.color" style="font-size: 12px; color: #64748b;">Variant: {{ item.color }}</div>
+                                </div>
+                                <div style="width: 140px; text-align: right; color: #64748b; font-size: 13px;">
+                                    {{ item.qty }} x {{ formatPrice(item.price) }}
+                                </div>
+                                <div style="width: 140px; text-align: right; font-weight: 800; font-size: 14px; color: #0f172a;">
+                                    {{ formatPrice(item.price * item.qty) }}
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Order Summary -->
-                        <div class="d-flex justify-between align-end flex-wrap gap-4 mt-4" style="border-top:1px dashed var(--color-border); padding-top:16px;">
-                            <div>
-                                <div style="font-size:13px; color:var(--color-text-muted);">
-                                    Kurir: <strong style="color:var(--color-text-main);">{{ order.shippingMethod }}</strong> (Ongkir: {{ formatPrice(order.shipping?.shippingCost || 0) }})
+                        <div class="d-flex justify-between align-end flex-wrap gap-4 mt-2" style="border-top:1px dashed #cbd5e1; padding-top:20px;">
+                            <div style="flex: 1; min-width: 300px;">
+                                <div style="font-size:13px; color:#475569; margin-bottom: 6px;">
+                                    Kurir: <strong style="color:#0f172a;">{{ order.shippingMethod || '-' }}</strong> (Ongkir: {{ formatPrice(order.shipping?.shippingCost || 0) }})
                                 </div>
-                                <div style="font-size:13px; color:var(--color-text-muted); margin-top:2px;">
-                                    Alamat: <span style="color:var(--color-text-main);">{{ order.address }}</span>
+                                <div style="font-size:13px; color:#475569; line-height: 1.5;">
+                                    Alamat: <span style="color:#0f172a;">{{ order.address || '-' }}</span>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div style="font-size:13px; color:var(--color-text-muted);">Total Pembayaran</div>
-                                <div style="font-size: 20px; font-weight: 800; color: var(--color-primary);">
+                                <div style="font-size:12px; color:#64748b; margin-bottom: 4px;">Total Pembayaran</div>
+                                <div style="font-size: 22px; font-weight: 900; color: #dc2626;">
                                     {{ formatPrice(order.total) }}
                                 </div>
                             </div>
                         </div>
+                            </div>
 
                         <!-- Lacak Button for Kurir Sinar Abadi & Jasa Kurir (not Ambil Di Toko) -->
                         <div 
@@ -616,12 +711,13 @@ const handleUploadProof = () => {
                         <!-- Completed order info -->
                         <div 
                             v-if="order.status?.toUpperCase() === 'COMPLETED'" 
-                            class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
-                            style="background: #ecfdf5; border: 1px solid #10b981; padding:16px; border-radius: var(--radius-sm);"
+                            class="d-flex align-start gap-3 mt-6" 
+                            style="background: #f0fdf4; border: 1px solid #bbf7d0; padding:16px; border-radius: 8px;"
                         >
-                            <div style="font-size: 13px; color: #065f46;">
-                                <strong style="display:block; margin-bottom: 4px;">✅ Pesanan Selesai</strong>
-                                Pesanan Anda telah selesai diproses. Terima kasih telah berbelanja di Sinar Abadi!
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <div style="font-size: 13px; color: #166534;">
+                                <strong style="display:block; margin-bottom: 4px; font-size: 14px;">Pesanan Selesai</strong>
+                                Pesanan ini telah selesai diproses. Terima kasih telah berbelanja di Sinar Abadi!
                             </div>
                         </div>
 
@@ -636,6 +732,7 @@ const handleUploadProof = () => {
                                 Pesanan ini telah dibatalkan. Jika Anda sudah melakukan pembayaran, silakan hubungi CS kami.
                             </div>
                         </div>
+                        </div> <!-- End Expandable Body -->
                     </div>
                 </div>
 

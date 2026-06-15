@@ -98,4 +98,9 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
     Route::delete('/products/{productId}/variants/{variantId}', [OwnerController::class, 'deleteVariant'])->name('owner.variants.destroy');
 
     Route::put('/profile', [OwnerController::class, 'updateProfile'])->name('owner.profile.update');
+
+    // Warehouse and Inbound
+    Route::post('/warehouses', [OwnerController::class, 'storeWarehouse'])->name('warehouses.store');
+    Route::post('/inbounds', [OwnerController::class, 'storeInbound'])->name('inbounds.store');
+    Route::put('/inbounds/{id}/status', [OwnerController::class, 'updateInboundStatus'])->name('inbounds.updateStatus');
 });

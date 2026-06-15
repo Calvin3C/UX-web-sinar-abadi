@@ -38,6 +38,10 @@ func main() {
 		&models.Shipping{},
 		&models.Payment{},
 		&models.CustomerAddress{},
+		&models.Warehouse{},
+		&models.WarehouseStock{},
+		&models.InboundOrder{},
+		&models.InboundOrderItem{},
 	); err != nil {
 		log.Fatalf("❌ Auto-migration failed: %v", err)
 	}
@@ -58,6 +62,10 @@ func main() {
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Serve static files for images
+	r.Static("/images", "./uploads")
+	r.Static("/storage/products", "./uploads/products")
 
 	// ==================================================================
 	// API Routes
@@ -132,6 +140,18 @@ func main() {
 		userRoutes.POST("/admins", middleware.RoleRequired("owner"), controllers.CreateAdmin)
 		userRoutes.PUT("/admins/:username", middleware.RoleRequired("owner"), controllers.UpdateAdmin)
 		userRoutes.DELETE("/admins/:username", middleware.RoleRequired("owner"), controllers.DeleteAdmin)
+	}
+
+	// --- Warehouses & Inbounds (Owner only) ---
+	inventoryRoutes := api.Group("")
+	inventoryRoutes.Use(middleware.AuthRequired(), middleware.RoleRequired("owner"))
+	{
+		inventoryRoutes.GET("/warehouses", controllers.GetWarehouses)
+		inventoryRoutes.POST("/warehouses", controllers.CreateWarehouse)
+		
+		inventoryRoutes.GET("/inbounds", controllers.GetInbounds)
+		inventoryRoutes.POST("/inbounds", controllers.CreateInbound)
+		inventoryRoutes.PUT("/inbounds/:id/status", controllers.UpdateInboundStatus)
 	}
 
 	// ==================================================================

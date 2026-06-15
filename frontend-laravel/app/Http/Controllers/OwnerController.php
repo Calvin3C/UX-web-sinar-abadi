@@ -36,11 +36,19 @@ class OwnerController extends Controller
 
         // Calculate stats
         $completedOrders = array_filter($orders, fn($o) => in_array(strtolower($o['status'] ?? ''), ['success', 'completed']));
-        $totalRevenue = 0;
+        
+        $todayDate = date('Y-m-d');
+        $totalRevenueKotor = 0;
+        $totalRevenueBersih = 0;
+        
         foreach ($completedOrders as $order) {
-            if (isset($order['items']) && is_array($order['items'])) {
-                foreach ($order['items'] as $item) {
-                    $totalRevenue += ($item['price'] * $item['qty']);
+            $orderDate = $order['date'] ?? (isset($order['created_at']) ? substr($order['created_at'], 0, 10) : '');
+            if ($orderDate === $todayDate) {
+                $totalRevenueKotor += $order['total'] ?? 0;
+                if (isset($order['items']) && is_array($order['items'])) {
+                    foreach ($order['items'] as $item) {
+                        $totalRevenueBersih += (($item['price'] ?? 0) * ($item['qty'] ?? 0));
+                    }
                 }
             }
         }
@@ -50,14 +58,23 @@ class OwnerController extends Controller
         $profileResult = $this->api->getProfile($token);
         $profile = $profileResult['success'] ? $profileResult['data'] : null;
 
+        $warehouseResult = $this->api->getWarehouses($token);
+        $warehouses = $warehouseResult['success'] ? $warehouseResult['data'] : [];
+
+        $inboundResult = $this->api->getInbounds($token);
+        $inbounds = $inboundResult['success'] ? $inboundResult['data'] : [];
+
         return Inertia::render('Owner/Dashboard', [
             'products' => $products,
             'orders' => $orders,
             'admins' => $admins,
+            'warehouses' => $warehouses,
+            'inbounds' => $inbounds,
             'username' => session('auth_username', 'Owner'),
             'profile' => $profile,
             'stats' => [
-                'totalRevenue' => $totalRevenue,
+                'totalRevenueKotor' => $totalRevenueKotor,
+                'totalRevenueBersih' => $totalRevenueBersih,
                 'salesCount' => count($completedOrders),
                 'stockIssuesCount' => $stockIssues,
                 'totalAdmins' => count($admins),
@@ -422,5 +439,63 @@ class OwnerController extends Controller
         }
 
         return back()->with('success', 'Profil berhasil diperbarui.');
+    }
+
+    public function storeWarehouse(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'description' => 'nullable|string',
+        ]);
+        $token = session('auth_token');
+        $result = $this->api->createWarehouse($token, $request->all());
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['message'] ?? 'Gagal membuat gudang.');
+        }
+
+        return back()->with('success', 'Gudang berhasil dibuat.');
+    }
+
+    public function storeInbound(Request $request)
+    {
+        $request->validate([
+            'supplierName' => 'required|string',
+            'expectedDate' => 'required|date',
+            'items' => 'required|array',
+        ]);
+        
+        $token = session('auth_token');
+        
+        $data = [
+            'supplierName' => $request->input('supplierName'),
+            'expectedDate' => date('c', strtotime($request->input('expectedDate'))),
+            'totalCost' => collect($request->input('items'))->sum(fn($item) => ($item['qty'] ?? 0) * ($item['unitCost'] ?? 0)),
+            'items' => $request->input('items'),
+        ];
+        
+        $result = $this->api->createInbound($token, $data);
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['message'] ?? 'Gagal membuat inbound.');
+        }
+
+        return back()->with('success', 'Inbound berhasil dibuat.');
+    }
+
+    public function updateInboundStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|string|in:received,cancelled',
+        ]);
+
+        $token = session('auth_token');
+        $result = $this->api->updateInboundStatus($token, $id, ['status' => $request->input('status')]);
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['message'] ?? 'Gagal memperbarui status inbound.');
+        }
+
+        return back()->with('success', 'Status inbound berhasil diperbarui.');
     }
 }
