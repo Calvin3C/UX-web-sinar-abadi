@@ -252,7 +252,7 @@ class CartController extends Controller
             'shipping_cost' => 'nullable|numeric',
             'courier_code' => 'nullable|string',
             'courier_service_code' => 'nullable|string',
-            'payment_type' => 'required|string|in:midtrans,manual',
+            'payment_type' => 'required|string',
         ];
 
         if ($paymentType === 'manual') {
@@ -275,7 +275,7 @@ class CartController extends Controller
 
         $cart = session('cart', []);
         if (empty($cart)) {
-            if ($paymentType === 'midtrans') {
+            if (str_starts_with($paymentType, 'midtrans')) {
                 return response()->json(['error' => 'Keranjang kosong.'], 400);
             }
             return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
@@ -301,8 +301,8 @@ class CartController extends Controller
         $totalProduct = $subtotal + $tax;
 
         // Determine payment method label for backend
-        $paymentMethod = $paymentType === 'midtrans'
-            ? 'Midtrans Online'
+        $paymentMethod = str_starts_with($paymentType, 'midtrans')
+            ? $paymentType
             : 'Transfer Bank ' . $request->input('bank', 'BCA');
 
         $result = $this->api->createOrder(session('auth_token'), [
@@ -320,7 +320,7 @@ class CartController extends Controller
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal membuat pesanan.';
-            if ($paymentType === 'midtrans') {
+            if (str_starts_with($paymentType, 'midtrans')) {
                 return response()->json(['error' => $error], 422);
             }
             return back()->withErrors(['bank' => $error]);
@@ -329,7 +329,7 @@ class CartController extends Controller
         $orderId = $result['data']['id'] ?? null;
 
         // === MIDTRANS FLOW ===
-        if ($paymentType === 'midtrans') {
+        if (str_starts_with($paymentType, 'midtrans')) {
             $snapToken = $result['data']['snapToken'] ?? null;
 
             if (!$snapToken) {

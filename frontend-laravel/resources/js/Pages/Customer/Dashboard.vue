@@ -675,7 +675,7 @@ const handleUploadProof = () => {
 
                         <!-- Pending Pay Actions -->
                         <div 
-                            v-if="order.status === 'PENDING' && !order.proofUploaded" 
+                            v-if="order.status === 'PENDING' && !order.proofUploaded && (!order.payment?.paymentMethod || !order.payment.paymentMethod.toLowerCase().includes('midtrans'))" 
                             class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
                             style="background: var(--color-bg-subtle); padding:16px; border-radius: var(--radius-sm);"
                         >
@@ -691,7 +691,7 @@ const handleUploadProof = () => {
                             </button>
                         </div>
                         <div 
-                            v-else-if="order.status === 'PENDING' && order.proofUploaded" 
+                            v-else-if="order.status === 'PENDING' && order.proofUploaded && (!order.payment?.paymentMethod || !order.payment.paymentMethod.toLowerCase().includes('midtrans'))" 
                             class="d-flex justify-between align-center flex-wrap gap-4 mt-6" 
                             style="background: #ecfdf5; border: 1px solid #10b981; padding:16px; border-radius: var(--radius-sm);"
                         >

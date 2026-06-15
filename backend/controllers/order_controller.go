@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -184,6 +185,13 @@ func CreateOrder(c *gin.Context) {
 		}
 	}
 
+	paymentMethodStr := input.PaymentMethod
+	if strings.HasPrefix(paymentMethodStr, "midtrans_") {
+		paymentMethodStr = "Midtrans (" + strings.TrimPrefix(paymentMethodStr, "midtrans_") + ")"
+	} else if paymentMethodStr == "midtrans" {
+		paymentMethodStr = "Midtrans"
+	}
+
 	order := models.Order{
 		ID:             orderID,
 		Date:           time.Now().Format("2006-01-02"),
@@ -273,7 +281,7 @@ func CreateOrder(c *gin.Context) {
 
 	payment := models.Payment{
 		OrderID:       orderID,
-		PaymentMethod: input.PaymentMethod,
+		PaymentMethod: paymentMethodStr,
 		AmountPaid:    order.Total,
 		PaymentStatus: "Pending",
 		SnapToken:     payResult.SnapToken,
@@ -456,15 +464,42 @@ func UploadProof(c *gin.Context) {
 		return
 	}
 
-	var input ProofUploadInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	var proofUrl string
+	contentType := c.GetHeader("Content-Type")
+
+	if strings.Contains(contentType, "multipart/form-data") {
+		file, err := c.FormFile("proof")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal membaca file bukti pembayaran"})
+			return
+		}
+
+		if err := os.MkdirAll("uploads/proofs", 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat direktori upload"})
+			return
+		}
+
+		filename := fmt.Sprintf("%s-%d.jpg", orderID, time.Now().Unix())
+		filepath := fmt.Sprintf("uploads/proofs/%s", filename)
+		if err := c.SaveUploadedFile(file, filepath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan file"})
+			return
+		}
+		
+		// The API serves ./uploads via /images
+		proofUrl = fmt.Sprintf("/images/proofs/%s", filename)
+	} else {
+		var input ProofUploadInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		proofUrl = input.ProofUrl
 	}
 
 	config.DB.Model(&order).Updates(map[string]interface{}{
 		"proof_uploaded": true,
-		"proof_url":      input.ProofUrl,
+		"proof_url":      proofUrl,
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -495,9 +530,9 @@ func CompleteOrderCustomer(c *gin.Context) {
 		return
 	}
 
-	config.DB.Model(&order).Update("status", "COMPLETED")
+	config.DB.Model(&order).Update("status", "completed")
 
-	c.JSON(http.StatusOK, gin.H{"message": "Webhook processed"})
+	c.JSON(http.StatusOK, gin.H{"message": "Pesanan berhasil diselesaikan"})
 }
 
 // CancelOrderCustomer allows a customer to cancel their own pending order.

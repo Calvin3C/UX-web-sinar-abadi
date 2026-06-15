@@ -42,9 +42,17 @@ const storeAddress = {
 const selectedAddress = ref(mockAddresses.value.length > 0 ? mockAddresses.value[0] : storeAddress);
 
 const selectedBank = ref(props.bankAccounts[0]?.name || 'Mandiri');
-const selectedPaymentMethod = ref('midtrans'); // 'midtrans' or 'manual'
+const selectedPaymentMethod = ref('midtrans_gopay'); // specific midtrans method or 'manual'
 const isProcessingMidtrans = ref(false);
 const midtransError = ref('');
+
+const midtransMethods = [
+    { id: 'midtrans_gopay', name: 'GoPay/QRIS', badge: 'E-Wallet / Instan' },
+    { id: 'midtrans_bca_va', name: 'BCA Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_echannel', name: 'Mandiri Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_bni_va', name: 'BNI Virtual Account', badge: 'Otomatis' },
+    { id: 'midtrans_bri_va', name: 'BRI Virtual Account', badge: 'Otomatis' },
+];
 
 const checkoutForm = useForm({
     bank: selectedBank.value,
@@ -56,7 +64,7 @@ const checkoutForm = useForm({
     shipping_cost: 0,
     courier_code: '',
     courier_service_code: '',
-    payment_type: 'midtrans',
+    payment_type: 'midtrans_gopay',
 });
 
 const isDragging = ref(false);
@@ -372,7 +380,7 @@ const isCheckoutDisabled = computed(() => {
     const malangCheck = checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang');
     const processing = checkoutForm.processing || isProcessingMidtrans.value;
     
-    if (selectedPaymentMethod.value === 'midtrans') {
+    if (selectedPaymentMethod.value.startsWith('midtrans')) {
         return processing || courierNotReady || malangCheck;
     }
     // Manual: also need proof
@@ -396,14 +404,14 @@ const handleCheckout = async () => {
     checkoutForm.payment_type = selectedPaymentMethod.value;
 
     // === MIDTRANS FLOW ===
-    if (selectedPaymentMethod.value === 'midtrans') {
+    if (selectedPaymentMethod.value.startsWith('midtrans')) {
         isProcessingMidtrans.value = true;
         midtransError.value = '';
         
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
             const formData = new FormData();
-            formData.append('payment_type', 'midtrans');
+            formData.append('payment_type', selectedPaymentMethod.value);
             formData.append('address', checkoutForm.address);
             formData.append('phone', checkoutForm.phone);
             formData.append('courier', checkoutForm.courier);
@@ -628,46 +636,31 @@ const handleCheckout = async () => {
                                 Silahkan pilih metode pembayaran yang Anda inginkan:
                             </p>
 
-                            <!-- Option 1: Midtrans Online Payment -->
+                            <!-- Midtrans Payment Options -->
                             <div 
+                                v-for="method in midtransMethods" 
+                                :key="method.id" 
                                 class="order-card mb-3"
-                                :style="selectedPaymentMethod === 'midtrans' ? { borderColor: '#0ea5e9', background: '#f0f9ff' } : { cursor: 'pointer' }"
-                                @click="selectedPaymentMethod = 'midtrans'"
+                                :style="selectedPaymentMethod === method.id ? { borderColor: '#0ea5e9', background: '#f0f9ff' } : { cursor: 'pointer' }"
+                                @click="selectedPaymentMethod = method.id"
                             >
                                 <div class="d-flex align-center gap-3">
                                     <div 
                                         style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; background: white;"
-                                        :style="selectedPaymentMethod === 'midtrans' ? { borderColor: '#0ea5e9' } : {}"
+                                        :style="selectedPaymentMethod === method.id ? { borderColor: '#0ea5e9' } : {}"
                                     >
                                         <div 
-                                            v-if="selectedPaymentMethod === 'midtrans'"
+                                            v-if="selectedPaymentMethod === method.id"
                                             style="width: 10px; height: 10px; border-radius: 50%; background: #0ea5e9;"
                                         ></div>
                                     </div>
                                     <div style="flex: 1;">
                                         <span style="font-size: 14px; font-weight: 600; color: #1e293b;">
-                                            Bayar Online (Midtrans)
+                                            {{ method.name }}
                                         </span>
                                         <span style="font-size: 11px; font-weight: 700; color: white; background: linear-gradient(135deg, #0ea5e9, #6366f1); padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
-                                            OTOMATIS
+                                            {{ method.badge }}
                                         </span>
-                                    </div>
-                                </div>
-
-                                <div v-if="selectedPaymentMethod === 'midtrans'" style="margin-top: 16px; margin-left: 31px; background: white; padding: 16px; border-radius: 6px; border: 1px solid #e0f2fe;">
-                                    <div style="font-size: 13px; color: #334155; line-height: 1.6;">
-                                        <div class="d-flex align-center gap-2 mb-2">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                            <span>Verifikasi pembayaran <b>otomatis</b></span>
-                                        </div>
-                                        <div class="d-flex align-center gap-2 mb-2">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                            <span>Tersedia: Virtual Account, GoPay, QRIS, Kartu Kredit, dll.</span>
-                                        </div>
-                                        <div class="d-flex align-center gap-2">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                            <span>Tidak perlu upload bukti transfer</span>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -776,13 +769,13 @@ const handleCheckout = async () => {
                                     type="submit" 
                                     class="btn w-100" 
                                     :style="[
-                                        { background: selectedPaymentMethod === 'midtrans' ? 'linear-gradient(135deg, #0ea5e9, #6366f1)' : '#0f172a', color: 'white', fontSize: '14px', padding: '16px', fontWeight: '700', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease' },
+                                        { background: selectedPaymentMethod.startsWith('midtrans') ? 'linear-gradient(135deg, #0ea5e9, #6366f1)' : '#0f172a', color: 'white', fontSize: '14px', padding: '16px', fontWeight: '700', borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease' },
                                         isCheckoutDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}
                                     ]"
                                     :disabled="isCheckoutDisabled"
                                 >
                                     <span v-if="checkoutForm.processing || isProcessingMidtrans">MEMPROSES PESANAN...</span>
-                                    <span v-else-if="selectedPaymentMethod === 'midtrans'">&#x1F512; BAYAR DENGAN MIDTRANS</span>
+                                    <span v-else-if="selectedPaymentMethod.startsWith('midtrans')">&#x1F512; BAYAR OTOMATIS</span>
                                     <span v-else>BAYAR SEKARANG</span>
                                 </button>
                             </form>
