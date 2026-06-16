@@ -1077,7 +1077,8 @@ const handleDeleteAdmin = (adminUsername) => {
                             <button @click="outboundTab = 'transfers'" :style="outboundTab === 'transfers' ? 'border-bottom: 2px solid #3b82f6; color: #3b82f6;' : 'color: #64748b;'" style="padding: 10px 16px; font-weight: 600; font-size: 14px; border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer;">Riwayat Transfer Stok</button>
                         </div>
                         
-                        <div v-if="outboundTab === 'orders'" class="table-header" style="flex-direction: column; gap: 16px;">
+                        <div v-if="outboundTab === 'orders'">
+                            <div class="table-header" style="flex-direction: column; gap: 16px;">
                             <div class="d-flex justify-between align-center w-100">
                                 <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0;">Logistik Keluar (Pemantauan Ekspedisi)</h3>
                             </div>
@@ -1172,6 +1173,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
                         </div>
                         
                         <div v-if="outboundTab === 'transfers'">

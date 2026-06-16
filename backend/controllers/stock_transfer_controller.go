@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -24,9 +25,11 @@ func TransferStock(c *gin.Context) {
 
 	var input StockTransferInput
 	if err := c.ShouldBindJSON(&input); err != nil {
+        log.Printf("TransferStock Bind Error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Data transfer tidak valid"})
 		return
 	}
+    log.Printf("TransferStock Input: %+v", input)
 
 	if input.FromWarehouseID == input.ToWarehouseID {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Gudang asal dan tujuan tidak boleh sama"})
@@ -37,6 +40,7 @@ func TransferStock(c *gin.Context) {
 
 	var product models.Product
 	if result := tx.Where("id = ?", productID).First(&product); result.Error != nil {
+        log.Printf("TransferStock Product Error: %v", result.Error)
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Produk tidak ditemukan"})
 		return
@@ -52,6 +56,7 @@ func TransferStock(c *gin.Context) {
 	}
 
 	if err := queryFrom.First(&fromStock).Error; err != nil || fromStock.Stock < input.Quantity {
+        log.Printf("TransferStock Stock Error: err=%v, stock=%d, requested=%d", err, fromStock.Stock, input.Quantity)
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Stok di gudang asal tidak mencukupi"})
 		return

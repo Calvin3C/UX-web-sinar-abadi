@@ -153,7 +153,7 @@ const submitTransfer = () => {
     }
     
     isTransferring.value = true;
-    router.post(route('owner.products.transfer', props.product.id), transferForm, {
+    router.post(`/owner/products/${props.product.id}/transfer`, transferForm, {
         preserveScroll: true,
         onSuccess: () => {
             closeTransferModal();

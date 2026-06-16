@@ -157,8 +157,8 @@ class OwnerController extends Controller
             ]
         );
 
-        if (!$result['success']) {
-            return back()->with('error', $result['message'] ?? 'Gagal melakukan transfer stok.');
+        if (isset($result['error']) || (isset($result['success']) && $result['success'] === false)) {
+            return back()->with('error', $result['error'] ?? $result['message'] ?? 'Gagal melakukan transfer stok.');
         }
 
         return back()->with('success', 'Transfer stok berhasil.');

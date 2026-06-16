@@ -9,7 +9,7 @@ type StockTransfer struct {
 	VariantID       *uint      `json:"variantId"`
 	FromWarehouseID uint       `json:"fromWarehouseId"`
 	ToWarehouseID   uint       `json:"toWarehouseId"`
-	Quantity        int        `json:"quantity"`
+	Quantity        int        `gorm:"column:qty;not null" json:"quantity"`
 	Notes           string     `json:"notes"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
