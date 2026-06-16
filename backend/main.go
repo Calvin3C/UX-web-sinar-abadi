@@ -42,6 +42,8 @@ func main() {
 		&models.WarehouseStock{},
 		&models.InboundOrder{},
 		&models.InboundOrderItem{},
+		&models.ProductVariant{},
+		&models.StockTransfer{},
 	); err != nil {
 		log.Fatalf("❌ Auto-migration failed: %v", err)
 	}
@@ -151,7 +153,17 @@ func main() {
 	{
 		inventoryRoutes.GET("/warehouses", controllers.GetWarehouses)
 		inventoryRoutes.POST("/warehouses", controllers.CreateWarehouse)
-		
+		inventoryRoutes.PUT("/warehouses/:id", controllers.UpdateWarehouse)
+
+		inventoryRoutes.POST("/products/:id/transfer", controllers.TransferStock)
+
+		// Stock Adjustment
+		inventoryRoutes.POST("/products/:id/stock", controllers.UpdateStock)
+
+		// Outbound/Stock Transfers
+		inventoryRoutes.GET("/stock-transfers", controllers.GetStockTransfers)
+
+		// Inbounds
 		inventoryRoutes.GET("/inbounds", controllers.GetInbounds)
 		inventoryRoutes.POST("/inbounds", controllers.CreateInbound)
 		inventoryRoutes.PUT("/inbounds/:id/status", controllers.UpdateInboundStatus)

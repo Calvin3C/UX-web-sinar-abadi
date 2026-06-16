@@ -65,12 +65,16 @@ class OwnerController extends Controller
         $inboundResult = $this->api->getInbounds($token);
         $inbounds = $inboundResult['success'] ? $inboundResult['data'] : [];
 
+        $transferResult = $this->api->getStockTransfers($token);
+        $stockTransfers = $transferResult['success'] ? $transferResult['data'] : [];
+
         return Inertia::render('Owner/Dashboard', [
             'products' => $products,
             'orders' => $orders,
             'admins' => $admins,
             'warehouses' => $warehouses,
             'inbounds' => $inbounds,
+            'stockTransfers' => $stockTransfers,
             'username' => session('auth_username', 'Owner'),
             'profile' => $profile,
             'stats' => [
@@ -128,6 +132,37 @@ class OwnerController extends Controller
         return back()->with('success', $result['data']['message'] ?? 'Stok berhasil diperbarui.');
     }
 
+    /**
+     * Transfer stok antar gudang.
+     */
+    public function transferStock(Request $request, string $productId)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'fromWarehouseId' => 'required|integer',
+            'toWarehouseId' => 'required|integer',
+            'variantId' => 'nullable|integer',
+        ]);
+
+        $token = session('auth_token');
+
+        $result = $this->api->transferStock(
+            $token, 
+            $productId, 
+            [
+                'fromWarehouseId' => (int) $request->input('fromWarehouseId'),
+                'toWarehouseId' => (int) $request->input('toWarehouseId'),
+                'quantity' => (int) $request->input('quantity'),
+                'variantId' => $request->input('variantId') ? (int) $request->input('variantId') : null,
+            ]
+        );
+
+        if (!$result['success']) {
+            return back()->with('error', $result['message'] ?? 'Gagal melakukan transfer stok.');
+        }
+
+        return back()->with('success', 'Transfer stok berhasil.');
+    }
 
     /**
      * Buat akun admin baru.
@@ -211,10 +246,14 @@ class OwnerController extends Controller
             ->values()
             ->all();
 
+        $warehouseResult = $this->api->getWarehouses(session('auth_token'));
+        $warehouses = $warehouseResult['success'] ? $warehouseResult['data'] : [];
+
         return Inertia::render('Owner/ProductForm', [
             'mode' => 'create',
             'product' => null,
             'categories' => $categories,
+            'warehouses' => $warehouses,
             'username' => session('auth_username', 'Owner'),
         ]);
     }
@@ -238,10 +277,14 @@ class OwnerController extends Controller
             ->values()
             ->all();
 
+        $warehouseResult = $this->api->getWarehouses($token);
+        $warehouses = $warehouseResult['success'] ? $warehouseResult['data'] : [];
+
         return Inertia::render('Owner/ProductForm', [
             'mode' => 'edit',
             'product' => $result['data'],
             'categories' => $categories,
+            'warehouses' => $warehouses,
             'username' => session('auth_username', 'Owner'),
         ]);
     }
@@ -468,6 +511,23 @@ class OwnerController extends Controller
         }
 
         return back()->with('success', 'Gudang berhasil dibuat.');
+    }
+
+    public function updateWarehouse(Request $request, string $id)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'description' => 'nullable|string',
+            'isActive' => 'required|boolean',
+        ]);
+        $token = session('auth_token');
+        $result = $this->api->updateWarehouse($token, $id, $request->all());
+
+        if (!$result['success']) {
+            return back()->with('error', $result['data']['message'] ?? 'Gagal memperbarui gudang.');
+        }
+
+        return back()->with('success', 'Gudang berhasil diperbarui.');
     }
 
     public function storeInbound(Request $request)

@@ -91,6 +91,8 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
     Route::get('/products/create', [OwnerController::class, 'createProduct'])->name('products.create');
     Route::post('/products', [OwnerController::class, 'storeProduct'])->name('products.store');
     Route::get('/products/{id}/edit', [OwnerController::class, 'editProduct'])->name('products.edit');
+    Route::post('/products/{id}/stock', [OwnerController::class, 'updateStock'])->name('products.stock');
+    Route::post('/products/{id}/transfer', [OwnerController::class, 'transferStock'])->name('products.transfer');
     Route::put('/products/{id}', [OwnerController::class, 'updateProduct'])->name('products.update');
 
     // Variants CRUD
@@ -101,6 +103,7 @@ Route::middleware('auth.api:owner')->prefix('owner')->name('owner.')->group(func
 
     // Warehouse and Inbound
     Route::post('/warehouses', [OwnerController::class, 'storeWarehouse'])->name('warehouses.store');
+    Route::put('/warehouses/{id}', [OwnerController::class, 'updateWarehouse'])->name('warehouses.update');
     Route::post('/inbounds', [OwnerController::class, 'storeInbound'])->name('inbounds.store');
     Route::put('/inbounds/{id}/status', [OwnerController::class, 'updateInboundStatus'])->name('inbounds.updateStatus');
 });

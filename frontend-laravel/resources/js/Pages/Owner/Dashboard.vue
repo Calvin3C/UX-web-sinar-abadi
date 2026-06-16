@@ -24,6 +24,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    stockTransfers: {
+        type: Array,
+        default: () => [],
+    },
     username: {
         type: String,
         required: true,
@@ -209,8 +213,10 @@ const getOrderWarehouses = (order) => {
         const product = props.products.find(p => p.id === item.productId);
         if (product && product.warehouseStocks && product.warehouseStocks.length > 0) {
             product.warehouseStocks.forEach(ws => {
-                const wh = props.warehouses.find(w => w.id === ws.warehouseId);
-                if (wh) whSet.add(wh.name);
+                if (ws.stock > 0) {
+                    const wh = props.warehouses.find(w => w.id === ws.warehouseId);
+                    if (wh) whSet.add(wh.name);
+                }
             });
         }
     });
@@ -222,9 +228,11 @@ const getProductWarehouses = (product) => {
     if (!product.warehouseStocks || product.warehouseStocks.length === 0) return '-';
     const names = [];
     product.warehouseStocks.forEach(ws => {
-        const wh = props.warehouses.find(w => w.id === ws.warehouseId);
-        if (wh && !names.includes(wh.name)) {
-            names.push(wh.name);
+        if (ws.stock > 0) {
+            const wh = props.warehouses.find(w => w.id === ws.warehouseId);
+            if (wh && !names.includes(wh.name)) {
+                names.push(wh.name);
+            }
         }
     });
     return names.length > 0 ? names.join(', ') : '-';
@@ -233,7 +241,7 @@ const getProductWarehouses = (product) => {
 // Actions
 const openStockModal = (productId, currentStock, variants = []) => {
     selectedProductId.value = productId;
-    stockAmount.value = currentStock;
+    stockAmount.value = ''; // Reset form for delta input
     stockUpdateForm.warehouseId = props.warehouses[0]?.id || '';
     stockUpdateForm.variantId = '';
     selectedProductVariants.value = variants;
@@ -242,12 +250,13 @@ const openStockModal = (productId, currentStock, variants = []) => {
 
 const handleUpdateStock = () => {
     router.put(`/owner/products/${selectedProductId.value}/stock`, {
-        amount: stockAmount.value - currentStockRef.value, // Delta
+        amount: stockAmount.value, // Delta
         warehouseId: stockUpdateForm.warehouseId,
         variantId: stockUpdateForm.variantId || null,
     }, {
         onSuccess: () => {
             isStockModalOpen.value = false;
+            stockAmount.value = '';
         },
         preserveScroll: true,
     });
@@ -268,7 +277,6 @@ const getVariantTotalStock = (variant) => {
 };
 
 // [WAREHOUSING]
-const currentStockRef = ref(0);
 const stockUpdateForm = useForm({
     warehouseId: '',
     variantId: '',
@@ -416,9 +424,22 @@ const markInboundCancelled = (id) => {
 // ==========================================
 // OUTBOUND (Logistik Keluar) STATE
 // ==========================================
+const outboundTab = ref('orders'); // 'orders' or 'transfers'
 const outboundSearchQuery = ref('');
 const outboundDateFilter = ref('');
 const outboundWarehouseFilter = ref('Semua');
+
+const filteredStockTransfers = computed(() => {
+    return props.stockTransfers.filter(st => {
+        let match = true;
+        if (outboundWarehouseFilter.value && outboundWarehouseFilter.value !== 'Semua') {
+            const fw = props.warehouses.find(w => w.id === st.fromWarehouseId);
+            const tw = props.warehouses.find(w => w.id === st.toWarehouseId);
+            match = (fw && fw.name === outboundWarehouseFilter.value) || (tw && tw.name === outboundWarehouseFilter.value);
+        }
+        return match;
+    });
+});
 
 const warehouseFilterOptions = computed(() => {
     return ['Semua', ...props.warehouses.map(w => w.name), 'Toko'];
@@ -1051,7 +1072,12 @@ const handleDeleteAdmin = (adminUsername) => {
 
                     <!-- Outbound Module -->
                     <div v-else-if="warehouseTab === 'outbound'">
-                        <div class="table-header" style="flex-direction: column; gap: 16px;">
+                        <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0;">
+                            <button @click="outboundTab = 'orders'" :style="outboundTab === 'orders' ? 'border-bottom: 2px solid #3b82f6; color: #3b82f6;' : 'color: #64748b;'" style="padding: 10px 16px; font-weight: 600; font-size: 14px; border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer;">Pesanan Pelanggan (Ekspedisi)</button>
+                            <button @click="outboundTab = 'transfers'" :style="outboundTab === 'transfers' ? 'border-bottom: 2px solid #3b82f6; color: #3b82f6;' : 'color: #64748b;'" style="padding: 10px 16px; font-weight: 600; font-size: 14px; border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer;">Riwayat Transfer Stok</button>
+                        </div>
+                        
+                        <div v-if="outboundTab === 'orders'" class="table-header" style="flex-direction: column; gap: 16px;">
                             <div class="d-flex justify-between align-center w-100">
                                 <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0;">Logistik Keluar (Pemantauan Ekspedisi)</h3>
                             </div>
@@ -1146,6 +1172,42 @@ const handleDeleteAdmin = (adminUsername) => {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        
+                        <div v-if="outboundTab === 'transfers'">
+                            <div class="table-header" style="margin-bottom: 16px;">
+                                <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0;">Riwayat Transfer Stok Internal</h3>
+                                <div style="position: relative; width: 200px;">
+                                    <select v-model="outboundWarehouseFilter" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; background: white; cursor: pointer;">
+                                        <option v-for="opt in warehouseFilterOptions" :key="opt" :value="opt">{{ opt === 'Semua' ? 'Semua Gudang' : opt }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Produk</th>
+                                            <th>Dari Gudang</th>
+                                            <th>Ke Gudang</th>
+                                            <th class="text-center">Jumlah</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="st in filteredStockTransfers" :key="st.id">
+                                            <td style="color: #475569; font-size: 13px;">{{ formatDate(st.createdAt) }}</td>
+                                            <td style="font-weight: 600; color: #0f172a; font-size: 13px;">{{ st.product ? st.product.name : st.productId }}</td>
+                                            <td style="color: #ea580c; font-weight: 600; font-size: 13px;">{{ st.fromWarehouse ? st.fromWarehouse.name : 'ID: ' + st.fromWarehouseId }}</td>
+                                            <td style="color: #16a34a; font-weight: 600; font-size: 13px;">{{ st.toWarehouse ? st.toWarehouse.name : 'ID: ' + st.toWarehouseId }}</td>
+                                            <td class="text-center" style="font-weight: 700; font-size: 14px;">{{ st.quantity }}</td>
+                                        </tr>
+                                        <tr v-if="filteredStockTransfers.length === 0">
+                                            <td colspan="5" class="text-center text-muted" style="padding: 40px 0;">Tidak ada riwayat transfer stok.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

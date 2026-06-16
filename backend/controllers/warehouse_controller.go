@@ -41,3 +41,35 @@ func CreateWarehouse(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "Warehouse created successfully", "data": warehouse})
 }
+
+func UpdateWarehouse(c *gin.Context) {
+	id := c.Param("id")
+	var warehouse models.Warehouse
+
+	if err := config.DB.First(&warehouse, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Warehouse not found"})
+		return
+	}
+
+	var input struct {
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+		IsActive    bool   `json:"isActive"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid input"})
+		return
+	}
+
+	warehouse.Name = input.Name
+	warehouse.Description = input.Description
+	warehouse.IsActive = input.IsActive
+
+	if err := config.DB.Save(&warehouse).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to update warehouse"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Warehouse updated successfully", "data": warehouse})
+}

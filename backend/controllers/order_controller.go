@@ -71,19 +71,47 @@ func generateOrderID() string {
 	)
 }
 
-// getWarehouseForProduct determines the warehouse based on product category rules.
-func getWarehouseForProduct(product models.Product) uint {
-	var warehouse models.Warehouse
-	category := strings.ToLower(product.Category)
-	if category == "besi beton" || category == "semen" {
-		config.DB.Where("LOWER(name) LIKE ?", "%gudang y%").First(&warehouse)
-	} else {
-		config.DB.Where("LOWER(name) LIKE ?", "%gudang m%").First(&warehouse)
+// getPrioritizedWarehouses returns a list of warehouse IDs sorted by deduction priority: Toko, Gudang Y, Gudang M, others.
+func getPrioritizedWarehouses() []uint {
+	var warehouses []models.Warehouse
+	config.DB.Find(&warehouses)
+
+	priority := func(name string) int {
+		lower := strings.ToLower(name)
+		if strings.Contains(lower, "toko") {
+			return 1
+		}
+		if strings.Contains(lower, "gudang y") {
+			return 2
+		}
+		if strings.Contains(lower, "gudang m") {
+			return 3
+		}
+		return 4
 	}
-	if warehouse.ID == 0 {
-		config.DB.First(&warehouse)
+
+	type whPriority struct {
+		ID       uint
+		Priority int
 	}
-	return warehouse.ID
+	var list []whPriority
+	for _, w := range warehouses {
+		list = append(list, whPriority{ID: w.ID, Priority: priority(w.Name)})
+	}
+	
+	for i := 0; i < len(list); i++ {
+		for j := i + 1; j < len(list); j++ {
+			if list[i].Priority > list[j].Priority {
+				list[i], list[j] = list[j], list[i]
+			}
+		}
+	}
+
+	var sorted []uint
+	for _, w := range list {
+		sorted = append(sorted, w.ID)
+	}
+	return sorted
 }
 
 // ---- Handlers ----
@@ -111,6 +139,10 @@ func CreateOrder(c *gin.Context) {
 
 	orderID := generateOrderID()
 
+	// Map to keep track of the primary warehouse used for each item
+	itemPrimaryWarehouse := make(map[string]uint)
+	prioritizedWhIDs := getPrioritizedWarehouses()
+
 	// Validate stock availability and decrement
 	tx := config.DB.Begin()
 	for _, item := range input.Items {
@@ -121,57 +153,86 @@ func CreateOrder(c *gin.Context) {
 			return
 		}
 
-		warehouseID := getWarehouseForProduct(product)
-
-		// Calculate current stock from warehouse_stocks
-		var whStock models.WarehouseStock
-		query := tx.Where("product_id = ? AND warehouse_id = ?", item.ProductID, warehouseID)
+		var allStocks []models.WarehouseStock
+		query := tx.Where("product_id = ?", item.ProductID)
 		if item.VariantID != nil {
 			query = query.Where("variant_id = ?", *item.VariantID)
 		} else {
 			query = query.Where("variant_id IS NULL")
 		}
-		
-		if err := query.First(&whStock).Error; err != nil {
-			// If not found, it means 0 stock
-			whStock.Stock = 0
-		}
-		currentStock := whStock.Stock
+		query.Find(&allStocks)
 
-		if currentStock < item.Qty {
+		totalAvailable := 0
+		stockMap := make(map[uint]*models.WarehouseStock)
+		for i, ws := range allStocks {
+			totalAvailable += ws.Stock
+			stockMap[ws.WarehouseID] = &allStocks[i]
+		}
+
+		if totalAvailable < item.Qty {
 			tx.Rollback()
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok %s tidak mencukupi (tersisa %d)", product.Name, currentStock)})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Stok %s tidak mencukupi (tersisa %d)", product.Name, totalAvailable)})
 			return
 		}
-		
-		// Update warehouse_stocks
-		newStock := currentStock - item.Qty
-		if whStock.ID == 0 {
-			// Should theoretically not happen if stock > 0, but safety fallback
-			whStock = models.WarehouseStock{
-				ProductID: item.ProductID,
-				VariantID: item.VariantID,
-				WarehouseID: warehouseID,
-				Stock: newStock,
+
+		remainingQty := item.Qty
+		var primaryWarehouseID *uint
+
+		for _, whID := range prioritizedWhIDs {
+			if remainingQty <= 0 {
+				break
 			}
-			tx.Create(&whStock)
-		} else {
-			tx.Model(&whStock).Update("stock", newStock)
+			ws, exists := stockMap[whID]
+			if !exists || ws.Stock <= 0 {
+				continue
+			}
+
+			if primaryWarehouseID == nil {
+				copyID := whID
+				primaryWarehouseID = &copyID
+			}
+
+			deduct := remainingQty
+			if ws.Stock < remainingQty {
+				deduct = ws.Stock
+			}
+
+			remainingQty -= deduct
+			newStock := ws.Stock - deduct
+			ws.Stock = newStock
+
+			tx.Model(ws).Update("stock", newStock)
+
+			// Log stock deduction due to sale
+			copyWhID := whID
+			tx.Create(&models.StockLog{
+				ProductID:   item.ProductID,
+				VariantID:   item.VariantID,
+				WarehouseID: &copyWhID,
+				ChangeType:  "deduction",
+				QtyChanged:  -deduct,
+				FinalStock:  newStock,
+				Description: fmt.Sprintf("Penjualan (Order %s)", orderID),
+			})
+		}
+
+		if remainingQty > 0 {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Gagal memotong stok %s", product.Name)})
+			return
+		}
+
+		// Save the primary warehouse for the order items
+		itemKey := item.ProductID
+		if item.VariantID != nil {
+			itemKey = fmt.Sprintf("%s-%d", item.ProductID, *item.VariantID)
+		}
+		if primaryWarehouseID != nil {
+			itemPrimaryWarehouse[itemKey] = *primaryWarehouseID
 		}
 
 		// Increase sold count only (global stock is calculated from stock logs)
 		tx.Model(&product).Update("sold", product.Sold+item.Qty)
-
-		// Log stock deduction due to sale
-		tx.Create(&models.StockLog{
-			ProductID:   item.ProductID,
-			VariantID:   item.VariantID,
-			WarehouseID: &warehouseID,
-			ChangeType:  "deduction",
-			QtyChanged:  -item.Qty,
-			FinalStock:  newStock,
-			Description: fmt.Sprintf("Penjualan (Order %s)", orderID),
-		})
 	}
 
 	// Build order items
@@ -198,11 +259,20 @@ func CreateOrder(c *gin.Context) {
 		if itemWidth <= 0 { itemWidth = 1 }
 		if itemHeight <= 0 { itemHeight = 1 }
 
-		warehouseIDVal := getWarehouseForProduct(productCopy)
+		itemKey := item.ProductID
+		if item.VariantID != nil {
+			itemKey = fmt.Sprintf("%s-%d", item.ProductID, *item.VariantID)
+		}
+		var warehouseIDVal *uint
+		if id, ok := itemPrimaryWarehouse[itemKey]; ok {
+			copyID := id
+			warehouseIDVal = &copyID
+		}
+
 		orderItems = append(orderItems, models.OrderItem{
 			ProductID: item.ProductID,
 			VariantID: item.VariantID,
-			WarehouseID: &warehouseIDVal,
+			WarehouseID: warehouseIDVal,
 			Name:      item.Name,
 			Qty:       item.Qty,
 			Price:     item.Price,

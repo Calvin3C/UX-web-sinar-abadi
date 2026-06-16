@@ -420,6 +420,33 @@ class ApiService
         ];
     }
 
+    public function updateWarehouse(string $token, string $id, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/warehouses/{$id}", $data);
+
+        return $response->json() ?? ['success' => false, 'message' => 'API error'];
+    }
+
+    public function getStockTransfers(string $token): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/stock-transfers");
+
+        return $response->json() ?? ['success' => false, 'message' => 'API error'];
+    }
+
+    public function transferStock(string $token, string $productId, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->post("{$this->baseUrl}/products/{$productId}/transfer", $data);
+
+        return $response->json() ?? ['success' => false, 'message' => 'API error'];
+    }
+
     public function getInbounds(string $token): array
     {
         $response = Http::timeout(10)

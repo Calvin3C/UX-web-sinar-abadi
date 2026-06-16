@@ -236,7 +236,8 @@ func UpdateStock(c *gin.Context) {
 
 	newStock := currentStock + input.Amount
 	if newStock < 0 {
-		newStock = 0
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Stok di gudang ini tidak mencukupi untuk dikurangi"})
+		return
 	}
 
 	actualChange := newStock - currentStock
