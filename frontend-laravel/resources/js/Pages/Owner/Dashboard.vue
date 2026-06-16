@@ -276,6 +276,12 @@ const getVariantTotalStock = (variant) => {
     return variant.warehouseStocks.reduce((sum, w) => sum + w.stock, 0);
 };
 
+const getVariantStockByWarehouse = (variant, warehouseId) => {
+    if (!variant.warehouseStocks) return 0;
+    const ws = variant.warehouseStocks.find(w => w.warehouseId === warehouseId);
+    return ws ? ws.stock : 0;
+};
+
 // [WAREHOUSING]
 const stockUpdateForm = useForm({
     warehouseId: '',
@@ -1554,7 +1560,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                 <tr style="border-bottom: 2px solid #e2e8f0;">
                                     <th style="text-align: left; padding: 10px; color: #64748b;">Nama Varian</th>
                                     <th style="text-align: right; padding: 10px; color: #64748b;">Harga (Rp)</th>
-                                    <th style="text-align: center; padding: 10px; color: #64748b;">Stok</th>
+                                    <th v-for="w in warehouses" :key="w.id" style="text-align: center; padding: 10px; color: #64748b;">Stok {{ w.name }}</th>
                                     <th style="text-align: center; padding: 10px; color: #64748b; width: 100px;">Aksi</th>
                                 </tr>
                             </thead>
@@ -1562,7 +1568,9 @@ const handleDeleteAdmin = (adminUsername) => {
                                 <tr v-for="variant in selectedProductVariants" :key="variant.id" style="border-bottom: 1px solid #f1f5f9;">
                                     <td style="padding: 12px 10px; font-weight: 600; color: #334155;">{{ variant.name }}</td>
                                     <td style="padding: 12px 10px; text-align: right; color: #0f172a;">{{ variant.price > 0 ? formatPrice(variant.price) : 'Default' }}</td>
-                                    <td style="padding: 12px 10px; text-align: center; font-weight: 600; color: #0ea5e9;">{{ getVariantTotalStock(variant) }}</td>
+                                    <td v-for="w in warehouses" :key="w.id" style="padding: 12px 10px; text-align: center; font-weight: 600; color: #0ea5e9;">
+                                        {{ getVariantStockByWarehouse(variant, w.id) }}
+                                    </td>
                                     <td style="padding: 12px 10px; text-align: center; display: flex; justify-content: center; gap: 12px;">
                                         <button @click="openStockForVariant(variant.id)" style="color: #10b981; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;" title="Atur Stok">Stok</button>
                                         <button @click="handleRemoveVariant(variant.id)" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;" title="Hapus Varian">Hapus</button>
