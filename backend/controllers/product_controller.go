@@ -30,7 +30,9 @@ type CreateProductInput struct {
 
 // StockUpdateInput represents the request body for stock adjustment.
 type StockUpdateInput struct {
-	Amount int `json:"amount" binding:"required"` // positive = add, negative = subtract
+	Amount      int   `json:"amount" binding:"required"` // positive = add, negative = subtract
+	WarehouseID *uint `json:"warehouseId"`
+	VariantID   *uint `json:"variantId"`
 }
 
 // UpdateProductInput represents the request body for updating an existing product.
@@ -50,12 +52,12 @@ type UpdateProductInput struct {
 }
 
 // getStockByProductID calculates the current stock for a product
-// by summing all qty_changed entries in stock_logs.
+// by summing all stock entries in warehouse_stocks.
 func getStockByProductID(productID string) int {
 	var totalStock int
-	config.DB.Model(&models.StockLog{}).
+	config.DB.Model(&models.WarehouseStock{}).
 		Where("product_id = ?", productID).
-		Select("COALESCE(SUM(qty_changed), 0)").
+		Select("COALESCE(SUM(stock), 0)").
 		Scan(&totalStock)
 	return totalStock
 }
@@ -213,14 +215,35 @@ func UpdateStock(c *gin.Context) {
 		return
 	}
 
-	// Calculate current stock from stock_logs
-	currentStock := getStockByProductID(productID)
+	// Update or create WarehouseStock if WarehouseID is provided
+	var currentStock int
+	var ws models.WarehouseStock
+	
+	if input.WarehouseID != nil {
+		err := config.DB.Where(models.WarehouseStock{
+			ProductID:   product.ID,
+			VariantID:   input.VariantID,
+			WarehouseID: *input.WarehouseID,
+		}).FirstOrCreate(&ws).Error
+
+		if err == nil {
+			currentStock = ws.Stock
+		}
+	} else {
+		// Calculate current stock from stock_logs if no warehouse is specified (legacy behavior fallback)
+		currentStock = getStockByProductID(productID)
+	}
+
 	newStock := currentStock + input.Amount
 	if newStock < 0 {
 		newStock = 0
 	}
 
 	actualChange := newStock - currentStock
+
+	if actualChange != 0 && input.WarehouseID != nil {
+		config.DB.Model(&ws).Update("stock", newStock)
+	}
 
 	// Log stock change
 	if actualChange != 0 {
@@ -240,6 +263,8 @@ func UpdateStock(c *gin.Context) {
 
 		config.DB.Create(&models.StockLog{
 			ProductID:   product.ID,
+			VariantID:   input.VariantID,
+			WarehouseID: input.WarehouseID,
 			OwnerID:     ownerIDPtr,
 			ChangeType:  changeType,
 			QtyChanged:  actualChange,
@@ -247,6 +272,10 @@ func UpdateStock(c *gin.Context) {
 			Description: reason,
 		})
 	}
+
+	// Reload product with preloads to return complete updated data
+	config.DB.Preload("Variants").Preload("WarehouseStocks").Preload("Variants.WarehouseStocks").Where("id = ?", productID).First(&product)
+
 
 	resp := toProductResponse(product)
 	c.JSON(http.StatusOK, gin.H{

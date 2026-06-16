@@ -54,6 +54,7 @@ class CartController extends Controller
             'qty'     => 'nullable|numeric|min:1',
             'minPurchase' => 'nullable|numeric|min:1',
             'color'   => 'nullable|string',
+            'variantId' => 'nullable|integer',
         ]);
 
         $cart = session('cart', []);
@@ -89,6 +90,7 @@ class CartController extends Controller
                 'qty'     => $requestedQty,
                 'minPurchase' => (int) $request->input('minPurchase', 1),
                 'color'   => $color,
+                'variantId' => $request->input('variantId'),
             ];
         }
 
@@ -294,6 +296,9 @@ class CartController extends Controller
                 'height'    => $item['height'] ?? 1,
                 'color'     => $item['color'] ?? '',
             ];
+            if (isset($item['variantId']) && $item['variantId']) {
+                $items[count($items) - 1]['variantId'] = $item['variantId'];
+            }
         }
 
         $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['qty']);

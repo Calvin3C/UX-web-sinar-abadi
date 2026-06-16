@@ -94,12 +94,14 @@ class ApiService
     /**
      * Update product stock (owner only).
      */
-    public function updateStock(string $token, string $productId, int $amount): array
+    public function updateStock(string $token, string $productId, int $amount, ?int $warehouseId = null, ?int $variantId = null): array
     {
         $response = Http::timeout(10)
             ->withToken($token)
             ->put("{$this->baseUrl}/products/{$productId}/stock", [
                 'amount' => $amount,
+                'warehouseId' => $warehouseId,
+                'variantId' => $variantId,
             ]);
 
         return [

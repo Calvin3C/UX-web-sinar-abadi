@@ -105,10 +105,20 @@ class OwnerController extends Controller
      */
     public function updateStock(Request $request, string $productId)
     {
-        $request->validate(['amount' => 'required|integer']);
+        $request->validate([
+            'amount' => 'required|integer',
+            'warehouseId' => 'nullable|integer',
+            'variantId' => 'nullable|integer',
+        ]);
         $token = session('auth_token');
 
-        $result = $this->api->updateStock($token, $productId, $request->input('amount'));
+        $result = $this->api->updateStock(
+            $token, 
+            $productId, 
+            $request->input('amount'),
+            $request->input('warehouseId'),
+            $request->input('variantId')
+        );
 
         if (!$result['success']) {
             return back()->with('error', 'Gagal memperbarui stok.');
@@ -374,12 +384,14 @@ class OwnerController extends Controller
         $request->validate([
             'name'  => 'required|string|max:100',
             'price' => 'nullable|integer|min:0',
+            'stock' => 'nullable|integer|min:0',
         ]);
 
         $token = session('auth_token');
         $result = $this->api->createVariant($token, $productId, [
             'name'  => $request->input('name'),
             'price' => (int) $request->input('price', 0),
+            'stock' => (int) $request->input('stock', 0),
         ]);
 
         if (!$result['success']) {
@@ -467,11 +479,20 @@ class OwnerController extends Controller
         
         $token = session('auth_token');
         
+        $items = array_map(function($item) {
+            if (isset($item['variantId']) && $item['variantId'] === '') {
+                $item['variantId'] = null;
+            } else if (isset($item['variantId'])) {
+                $item['variantId'] = (int) $item['variantId'];
+            }
+            return $item;
+        }, $request->input('items'));
+
         $data = [
             'supplierName' => $request->input('supplierName'),
             'expectedDate' => date('c', strtotime($request->input('expectedDate'))),
-            'totalCost' => collect($request->input('items'))->sum(fn($item) => ($item['qty'] ?? 0) * ($item['unitCost'] ?? 0)),
-            'items' => $request->input('items'),
+            'totalCost' => collect($items)->sum(fn($item) => ($item['qty'] ?? 0) * ($item['unitCost'] ?? 0)),
+            'items' => $items,
         ];
         
         $result = $this->api->createInbound($token, $data);

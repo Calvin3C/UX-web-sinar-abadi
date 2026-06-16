@@ -85,6 +85,7 @@ const selectedProductVariants = ref([]);
 const newVariantForm = useForm({
     name: '',
     price: 0,
+    stock: 0,
 });
 
 
@@ -250,6 +251,20 @@ const handleUpdateStock = () => {
         },
         preserveScroll: true,
     });
+};
+
+const openStockForVariant = (variantId) => {
+    isVariantModalOpen.value = false;
+    const product = props.products.find(p => p.id === selectedProductId.value);
+    if (product) {
+        openStockModal(product.id, product.stock, product.variants || []);
+        stockUpdateForm.variantId = variantId;
+    }
+};
+
+const getVariantTotalStock = (variant) => {
+    if (!variant.warehouseStocks) return 0;
+    return variant.warehouseStocks.reduce((sum, w) => sum + w.stock, 0);
 };
 
 // [WAREHOUSING]
@@ -1469,24 +1484,29 @@ const handleDeleteAdmin = (adminUsername) => {
                 </div>
                 
                 <div v-if="selectedProductVariants.length > 0" class="mb-6">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                        <thead>
-                            <tr style="border-bottom: 2px solid #e2e8f0;">
-                                <th style="text-align: left; padding: 8px; color: #64748b;">Nama Varian</th>
-                                <th style="text-align: right; padding: 8px; color: #64748b;">Harga (Rp)</th>
-                                <th style="text-align: center; padding: 8px; color: #64748b; width: 60px;">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="variant in selectedProductVariants" :key="variant.id" style="border-bottom: 1px solid #f1f5f9;">
-                                <td style="padding: 12px 8px; font-weight: 600; color: #334155;">{{ variant.name }}</td>
-                                <td style="padding: 12px 8px; text-align: right; color: #0f172a;">{{ variant.price > 0 ? formatPrice(variant.price) : 'Default' }}</td>
-                                <td style="padding: 12px 8px; text-align: center;">
-                                    <button @click="handleRemoveVariant(variant.id)" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;">Hapus</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div style="max-height: 350px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            <thead style="position: sticky; top: 0; background: white; z-index: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                <tr style="border-bottom: 2px solid #e2e8f0;">
+                                    <th style="text-align: left; padding: 10px; color: #64748b;">Nama Varian</th>
+                                    <th style="text-align: right; padding: 10px; color: #64748b;">Harga (Rp)</th>
+                                    <th style="text-align: center; padding: 10px; color: #64748b;">Stok</th>
+                                    <th style="text-align: center; padding: 10px; color: #64748b; width: 100px;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="variant in selectedProductVariants" :key="variant.id" style="border-bottom: 1px solid #f1f5f9;">
+                                    <td style="padding: 12px 10px; font-weight: 600; color: #334155;">{{ variant.name }}</td>
+                                    <td style="padding: 12px 10px; text-align: right; color: #0f172a;">{{ variant.price > 0 ? formatPrice(variant.price) : 'Default' }}</td>
+                                    <td style="padding: 12px 10px; text-align: center; font-weight: 600; color: #0ea5e9;">{{ getVariantTotalStock(variant) }}</td>
+                                    <td style="padding: 12px 10px; text-align: center; display: flex; justify-content: center; gap: 12px;">
+                                        <button @click="openStockForVariant(variant.id)" style="color: #10b981; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;" title="Atur Stok">Stok</button>
+                                        <button @click="handleRemoveVariant(variant.id)" style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600;" title="Hapus Varian">Hapus</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 <div v-else class="mb-6 text-center" style="padding: 20px; background: #f8fafc; border-radius: 8px; color: #64748b; font-size: 14px;">
                     Belum ada varian untuk produk ini.
@@ -1495,11 +1515,17 @@ const handleDeleteAdmin = (adminUsername) => {
                 <form @submit.prevent="handleAddVariant" style="background: #f1f5f9; padding: 16px; border-radius: 8px;">
                     <h4 class="mb-3" style="font-size: 14px; color: #334155;">Tambah Varian Baru</h4>
                     <div class="d-flex gap-2 mb-3">
-                        <div style="flex: 1;">
-                            <input v-model="newVariantForm.name" type="text" placeholder="Nama Varian (Cth: Merah)" required class="form-input" style="font-size: 13px;">
+                        <div style="flex: 2;">
+                            <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 500;">Nama Varian <span style="color: #ef4444;">*</span></label>
+                            <input v-model="newVariantForm.name" type="text" placeholder="Cth: Merah" required class="form-input" style="font-size: 13px;">
                         </div>
                         <div style="flex: 1;">
-                            <input v-model.number="newVariantForm.price" type="number" min="0" placeholder="Harga Khusus (0 = default)" class="form-input" style="font-size: 13px;">
+                            <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 500;">Harga Tambahan</label>
+                            <input v-model.number="newVariantForm.price" type="number" min="0" placeholder="0 = Default" class="form-input" style="font-size: 13px;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 500;">Stok Awal</label>
+                            <input v-model.number="newVariantForm.stock" type="number" min="0" placeholder="0" class="form-input" style="font-size: 13px;">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100" :disabled="newVariantForm.processing" style="padding: 8px 16px;">
@@ -1632,8 +1658,8 @@ const handleDeleteAdmin = (adminUsername) => {
                             <input type="text" class="form-input" v-model="inboundForm.supplierName" required placeholder="PT. Bintang Bangunan / Toko A">
                         </div>
                         <div class="form-group" style="flex: 1;">
-                            <label class="form-label">Tgl. Estimasi Sampai (Opsional)</label>
-                            <input type="date" class="form-input" v-model="inboundForm.expectedDate">
+                            <label class="form-label">Tgl. Estimasi Sampai</label>
+                            <input type="date" class="form-input" v-model="inboundForm.expectedDate" required>
                         </div>
                     </div>
 

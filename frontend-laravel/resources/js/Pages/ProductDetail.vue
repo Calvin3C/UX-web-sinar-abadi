@@ -100,6 +100,14 @@ const formatPrice = (price) => {
     }).format(price).replace('Rp', 'Rp ');
 };
 
+const getVariantId = () => {
+    if (props.product.variants && props.product.variants.length > 0) {
+        const variant = props.product.variants.find(v => v.name === selectedColor.value);
+        if (variant) return variant.id;
+    }
+    return null;
+};
+
 const handleAddToCart = () => {
     if (auth.value.role !== 'customer') {
         router.visit('/login');
@@ -120,6 +128,7 @@ const handleAddToCart = () => {
         qty: quantity.value,
         minPurchase: minPurchase,
         color: selectedColor.value,
+        variantId: getVariantId(),
     }, {
         preserveScroll: true
     });
