@@ -66,6 +66,9 @@ func main() {
 	// Serve static files for images
 	r.Static("/images", "./uploads")
 	r.Static("/storage/products", "./uploads/products")
+	
+	// Proxy Laravel storage files so mobile devices can access them through Go's port
+	r.Static("/storage/proofs", "../frontend-laravel/storage/app/public/proofs")
 
 	// ==================================================================
 	// API Routes

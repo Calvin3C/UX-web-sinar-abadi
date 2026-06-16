@@ -35,14 +35,15 @@ class OwnerController extends Controller
         $admins = $adminResult['success'] ? $adminResult['data'] : [];
 
         // Calculate stats
-        $completedOrders = array_filter($orders, fn($o) => in_array(strtolower($o['status'] ?? ''), ['success', 'completed']));
+        $completedOrders = array_filter($orders, fn($o) => strtolower($o['status'] ?? '') === 'completed');
         
         $todayDate = date('Y-m-d');
         $totalRevenueKotor = 0;
         $totalRevenueBersih = 0;
         
         foreach ($completedOrders as $order) {
-            $orderDate = $order['date'] ?? (isset($order['created_at']) ? substr($order['created_at'], 0, 10) : '');
+            $updatedAt = $order['updatedAt'] ?? ($order['updated_at'] ?? ($order['date'] ?? ''));
+            $orderDate = substr($updatedAt, 0, 10);
             if ($orderDate === $todayDate) {
                 $totalRevenueKotor += $order['total'] ?? 0;
                 if (isset($order['items']) && is_array($order['items'])) {
