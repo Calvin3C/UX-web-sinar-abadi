@@ -1153,7 +1153,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                                                 <th style="text-align: left; padding-bottom: 8px; font-weight: 700;">Nama Produk / Deskripsi</th>
                                                                 <th style="text-align: center; padding-bottom: 8px; font-weight: 700;">Qty Keluar</th>
                                                                 <th style="text-align: center; padding-bottom: 8px; font-weight: 700;">UOM</th>
-                                                                <th style="text-align: center; padding-bottom: 8px; font-weight: 700;">Sisa Stok Aktual</th>
+                                                                <th v-for="wh in warehouses" :key="wh.id" style="text-align: center; padding-bottom: 8px; font-weight: 700;">Stok Aktual ({{ wh.name }})</th>
                                                                 <th style="text-align: center; padding-bottom: 8px; font-weight: 700;">Stok Alokasi</th>
                                                             </tr>
                                                         </thead>
@@ -1165,7 +1165,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                                                 </td>
                                                                 <td style="text-align: center; padding: 10px 0; font-weight: 700; color: #16a34a;">{{ item.qty }}</td>
                                                                 <td style="text-align: center; padding: 10px 0; color: #475569;">{{ getProductUnit(item.productId) }}</td>
-                                                                <td style="text-align: center; padding: 10px 0; color: #475569;">{{ getActualStock(item.productId, item.warehouseId, item.variantId) }}</td>
+                                                                <td v-for="wh in warehouses" :key="'data-'+wh.id" style="text-align: center; padding: 10px 0; color: #475569;">{{ getActualStock(item.productId, wh.id, item.variantId) }}</td>
                                                                 <td style="text-align: center; padding: 10px 0; color: #ea580c;">{{ getAllocatedStock(item.productId, item.warehouseId, item.variantId) }}</td>
                                                             </tr>
                                                         </tbody>
