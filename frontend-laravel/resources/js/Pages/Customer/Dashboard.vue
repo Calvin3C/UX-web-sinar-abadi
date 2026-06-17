@@ -605,7 +605,14 @@ const handleUploadProof = () => {
                                             </tr>
                                             <tr style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
                                                 <td colspan="3" class="text-right" style="padding: 16px; font-weight: 800; color: #0f172a;">Ongkos Kirim:</td>
-                                                <td class="text-right" style="padding: 16px; font-weight: 600; color: #64748b;">{{ formatPrice(order.shipping?.shippingCost || 0) }}</td>
+                                                <td class="text-right" style="padding: 16px; font-weight: 600; color: #64748b;">
+                                                    <template v-if="order.shippingMethod === 'Kurir Toko Sinar Abadi'">
+                                                        <span style="color: #dc2626; font-style: italic;">akan ditagih setelah sampai</span>
+                                                    </template>
+                                                    <template v-else>
+                                                        {{ formatPrice(order.shipping?.shippingCost || 0) }}
+                                                    </template>
+                                                </td>
                                             </tr>
                                             <tr style="background: #f8fafc;">
                                                 <td colspan="3" class="text-right" style="padding: 16px; font-weight: 800; color: #0f172a;">Total Tagihan:</td>
@@ -641,7 +648,8 @@ const handleUploadProof = () => {
                         <div class="d-flex justify-between align-end flex-wrap gap-4 mt-2" style="border-top:1px dashed #cbd5e1; padding-top:20px;">
                             <div style="flex: 1; min-width: 300px;">
                                 <div style="font-size:13px; color:#475569; margin-bottom: 6px;">
-                                    Kurir: <strong style="color:#0f172a;">{{ order.shippingMethod || '-' }}</strong> (Ongkir: {{ formatPrice(order.shipping?.shippingCost || 0) }})
+                                    Kurir: <strong style="color:#0f172a;">{{ order.shippingMethod || '-' }}</strong> 
+                                    (Ongkir: <template v-if="order.shippingMethod === 'Kurir Toko Sinar Abadi'"><span style="color: #dc2626; font-style: italic;">akan ditagih setelah sampai</span></template><template v-else>{{ formatPrice(order.shipping?.shippingCost || 0) }}</template>)
                                 </div>
                                 <div style="font-size:13px; color:#475569; line-height: 1.5;">
                                     Alamat: <span style="color:#0f172a;">{{ order.address || '-' }}</span>

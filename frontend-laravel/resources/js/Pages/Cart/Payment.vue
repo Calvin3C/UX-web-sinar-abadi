@@ -798,7 +798,14 @@ const handleCheckout = async () => {
                             </div>
                             <div class="d-flex justify-between align-center mb-4" style="font-size: 14px; color: #64748b;">
                                 <span>Ongkos Kirim</span>
-                                <span style="color: #0f172a; font-weight: 500;">{{ currentShippingCost > 0 ? formatPrice(currentShippingCost) : 'Gratis' }}</span>
+                                <span style="color: #0f172a; font-weight: 500;">
+                                    <template v-if="checkoutForm.courier === 'Kurir Toko Sinar Abadi'">
+                                        <span style="color: #dc2626; font-style: italic; font-size: 13px;">(akan ditagih setelah sampai)</span>
+                                    </template>
+                                    <template v-else>
+                                        {{ currentShippingCost > 0 ? formatPrice(currentShippingCost) : 'Gratis' }}
+                                    </template>
+                                </span>
                             </div>
 
                             <div style="border-top: 1px solid #e2e8f0; padding-top: 16px;" class="d-flex justify-between align-center">

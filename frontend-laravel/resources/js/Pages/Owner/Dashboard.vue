@@ -1817,7 +1817,8 @@ const handleDeleteAdmin = (adminUsername) => {
                     <table class="data-table" style="margin: 0;">
                         <thead>
                             <tr style="background: #f8fafc;">
-                                <th>Produk</th>
+                                <th>ID Produk</th>
+                                <th>Nama Produk</th>
                                 <th>Varian</th>
                                 <th>Gudang Tujuan</th>
                                 <th class="text-center">Qty</th>
@@ -1827,15 +1828,16 @@ const handleDeleteAdmin = (adminUsername) => {
                         </thead>
                         <tbody>
                             <tr v-for="item in selectedInbound.items" :key="item.id">
-                                <td style="font-weight: 600; color: #0f172a;">{{ item.product?.name || item.productId }}</td>
+                                <td style="font-weight: 600; font-family: monospace; color: #475569;">{{ item.productId }}</td>
+                                <td style="font-weight: 600; color: #0f172a;">{{ products.find(p => p.id === item.productId)?.name || item.product?.name || '-' }}</td>
                                 <td style="color: #475569;">{{ item.variant?.name || '-' }}</td>
-                                <td style="color: #475569;">{{ item.warehouse?.name || 'Gudang Utama' }}</td>
+                                <td style="color: #475569;">{{ warehouses.find(w => w.id === item.warehouseId)?.name || item.warehouse?.name || 'Gudang Utama' }}</td>
                                 <td class="text-center" style="font-weight: 600;">{{ item.qty }}</td>
                                 <td class="text-right" style="color: #475569;">{{ formatPrice(item.unitCost) }}</td>
                                 <td class="text-right" style="font-weight: 600; color: #0f172a;">{{ formatPrice(item.subtotal) }}</td>
                             </tr>
                             <tr style="background: #f8fafc;">
-                                <td colspan="5" class="text-right" style="font-weight: 700; color: #0f172a;">Total Biaya:</td>
+                                <td colspan="6" class="text-right" style="font-weight: 700; color: #0f172a;">Total Biaya:</td>
                                 <td class="text-right" style="font-weight: 800; color: #dc2626; font-size: 16px;">{{ formatPrice(selectedInbound.totalCost) }}</td>
                             </tr>
                         </tbody>
