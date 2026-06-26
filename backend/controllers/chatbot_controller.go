@@ -107,7 +107,7 @@ Beri format jawaban yang rapi. Jangan ragu menyarankan jumlah yang perlu dibeli 
 
 	// 5. Send Request to Gemini API
 	apiKey := os.Getenv("GEMINI_API_KEY")
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=%s", apiKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=%s", apiKey)
 
 	reqBodyBytes, err := json.Marshal(geminiReq)
 	if err != nil {
