@@ -129,6 +129,9 @@ func main() {
 	api.POST("/biteship/webhook", controllers.BiteshipWebhook)
 	api.GET("/biteship/tracking/:id", controllers.GetTracking)
 
+	// --- Chatbot (Public/Customer) ---
+	api.POST("/chatbot", controllers.HandleChatbot)
+
 	// --- Midtrans Payment Webhook (Public) ---
 	api.POST("/midtrans/webhook", controllers.MidtransWebhook)
 
