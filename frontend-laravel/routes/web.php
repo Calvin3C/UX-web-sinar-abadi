@@ -73,6 +73,7 @@ Route::middleware('auth.api:customer')->prefix('customer')->name('customer.')->g
 Route::middleware('auth.api:admin')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::put('/orders/{id}/shipping', [AdminController::class, 'updateShipping'])->name('update-shipping');
+    Route::put('/orders/{id}/delivery-status', [AdminController::class, 'updateDeliveryStatus'])->name('update-delivery-status');
     Route::put('/profile', [AdminController::class, 'updateProfile'])->name('admin.profile.update');
 });
 

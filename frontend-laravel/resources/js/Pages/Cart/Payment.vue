@@ -64,8 +64,53 @@ const checkoutForm = useForm({
     shipping_cost: 0,
     courier_code: '',
     courier_service_code: '',
+    delivery_location_id: null,
     payment_type: 'midtrans_gopay',
 });
+
+// Delivery locations for Kurir Toko Sinar Abadi
+const deliveryLocations = ref([]);
+const selectedDeliveryLocation = ref(null);
+const isFetchingLocations = ref(false);
+
+const fetchDeliveryLocations = async () => {
+    isFetchingLocations.value = true;
+    try {
+        const res = await fetch('http://localhost:8080/api/delivery/locations');
+        if (res.ok) {
+            deliveryLocations.value = await res.json();
+            if (activeTab.value === 'kurir') {
+                checkDeliveryLocationMatch();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to fetch delivery locations', e);
+    } finally {
+        isFetchingLocations.value = false;
+    }
+};
+
+const checkDeliveryLocationMatch = () => {
+    if (!selectedAddress.value || selectedAddress.value.id === 99 || !deliveryLocations.value.length) return;
+    
+    const fullAddress = `${selectedAddress.value.address} ${selectedAddress.value.kota || ''}`.toLowerCase();
+    
+    // Match intelligently, ignoring "Desa" prefixes
+    const match = deliveryLocations.value.find(loc => {
+        let locName = loc.name.toLowerCase().replace(/^desa\s+/, '');
+        return fullAddress.includes(locName);
+    });
+    
+    if (match) {
+        selectedDeliveryLocation.value = match;
+        checkoutForm.delivery_location_id = match.id;
+        checkoutForm.shipping_cost = match.shippingCost;
+    } else {
+        selectedDeliveryLocation.value = null;
+        checkoutForm.delivery_location_id = null;
+        checkoutForm.shipping_cost = 0;
+    }
+};
 
 const isDragging = ref(false);
 const proofPreview = ref(null);
@@ -175,11 +220,16 @@ const selectAddress = async (addr) => {
     if (addr.id === 99) {
         checkoutForm.courier = 'Ambil Di Toko';
         selectedRate.value = null;
+        selectedDeliveryLocation.value = null;
+        checkoutForm.delivery_location_id = null;
     } else if (activeTab.value === 'kurir') {
         checkoutForm.courier = 'Kurir Toko Sinar Abadi';
         selectedRate.value = null;
+        checkDeliveryLocationMatch();
     } else {
         checkoutForm.courier = ''; // Will be set when user picks a rate
+        selectedDeliveryLocation.value = null;
+        checkoutForm.delivery_location_id = null;
         await fetchRates(addr);
     }
 };
@@ -209,6 +259,8 @@ onMounted(() => {
         checkoutForm.biteship_area_id = selectedAddress.value.biteshipAreaId || '';
         fetchRates(selectedAddress.value);
     }
+    // Prefetch delivery locations for Kurir Toko tab
+    fetchDeliveryLocations();
 });
 
 // Edit form
@@ -229,9 +281,15 @@ const addressForm = useForm({
 const areaSearchQuery = ref('');
 const isSearchingArea = ref(false);
 const areaSearchResults = ref([]);
+const isSelectingArea = ref(false);
 
 let searchTimeout;
 watch(areaSearchQuery, (newVal) => {
+    if (isSelectingArea.value) {
+        isSelectingArea.value = false;
+        return;
+    }
+
     if (!newVal || newVal.length < 3) {
         areaSearchResults.value = [];
         return;
@@ -259,6 +317,8 @@ const selectArea = (area) => {
     addressForm.biteshipAreaId = area.id;
     addressForm.kota = area.name;
     addressForm.postalCode = area.postal_code || '';
+    
+    isSelectingArea.value = true;
     areaSearchQuery.value = `${area.name}, ${area.administrative_division_level_2_name}, ${area.administrative_division_level_1_name} ${area.postal_code}`;
     areaSearchResults.value = [];
 };
@@ -365,8 +425,11 @@ const currentShippingCost = computed(() => {
     if (activeTab.value === 'semua' && selectedRate.value) {
         return selectedRate.value.price;
     }
-    if (activeTab.value === 'ambil' || activeTab.value === 'kurir') {
-        return 0; // Or define Kurir Toko pricing logic
+    if (activeTab.value === 'kurir' && selectedDeliveryLocation.value) {
+        return selectedDeliveryLocation.value.shippingCost;
+    }
+    if (activeTab.value === 'ambil') {
+        return 0;
     }
     return props.logistic.cost || 0;
 });
@@ -377,24 +440,17 @@ const grandTotal = computed(() => {
 
 const isCheckoutDisabled = computed(() => {
     const courierNotReady = activeTab.value === 'semua' && !selectedRate.value;
-    const malangCheck = checkoutForm.courier === 'Kurir Toko Sinar Abadi' && !checkoutForm.address.toLowerCase().includes('malang');
+    const kurirNoLocation = activeTab.value === 'kurir' && !selectedDeliveryLocation.value;
     const processing = checkoutForm.processing || isProcessingMidtrans.value;
     
     if (selectedPaymentMethod.value.startsWith('midtrans')) {
-        return processing || courierNotReady || malangCheck;
+        return processing || courierNotReady || kurirNoLocation;
     }
     // Manual: also need proof
-    return processing || !checkoutForm.proof || courierNotReady || malangCheck;
+    return processing || !checkoutForm.proof || courierNotReady || kurirNoLocation;
 });
 
 const handleCheckout = async () => {
-    if (checkoutForm.courier === 'Kurir Toko Sinar Abadi') {
-        if (!checkoutForm.address.toLowerCase().includes('malang')) {
-            alert('Pengiriman Kurir Toko Sinar Abadi hanya berlaku untuk area Malang. Silakan gunakan metode pengiriman lain atau ubah alamat Anda.');
-            return;
-        }
-    }
-
     if (!confirm('Pastikan alamat pengiriman sudah benar dan kurir pengiriman sudah sesuai.')) {
         return;
     }
@@ -419,6 +475,9 @@ const handleCheckout = async () => {
             formData.append('shipping_cost', checkoutForm.shipping_cost);
             formData.append('courier_code', checkoutForm.courier_code);
             formData.append('courier_service_code', checkoutForm.courier_service_code);
+            if (checkoutForm.delivery_location_id) {
+                formData.append('delivery_location_id', checkoutForm.delivery_location_id);
+            }
 
             const response = await fetch('/checkout', {
                 method: 'POST',
@@ -596,9 +655,24 @@ const handleCheckout = async () => {
                             </template>
                             <template v-else-if="checkoutForm.courier === 'Kurir Toko Sinar Abadi'">
                                 <div style="font-weight: 700; font-size: 14px; color: #0f172a;">Kurir Toko Sinar Abadi</div>
-                                <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Dikirim oleh armada toko kami.</div>
-                                <div v-if="!checkoutForm.address.toLowerCase().includes('malang')" style="font-size: 13px; color: #dc2626; margin-top: 8px; font-weight: 600;">
-                                    * Metode pengiriman ini hanya tersedia untuk area Malang (Kota/Kabupaten).
+                                <div style="font-size: 13px; color: #64748b; margin-top: 4px;">Dikirim oleh armada toko kami ke desa tujuan.</div>
+                                
+                                <!-- Delivery Location Auto Match -->
+                                <div style="margin-top: 16px;">
+                                    <div v-if="isFetchingLocations" style="font-size: 13px; color: #64748b; padding: 12px; text-align: center;">
+                                        Memuat data lokasi...
+                                    </div>
+                                    <div v-else-if="selectedDeliveryLocation" style="padding: 10px 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px;">
+                                        <div style="font-size: 12px; color: #166534; font-weight: 600;">Tujuan dikenali: <strong>{{ selectedDeliveryLocation.name }}</strong></div>
+                                        <div style="font-size: 13px; color: #166534; font-weight: 800; margin-top: 2px;">
+                                            Ongkir: {{ selectedDeliveryLocation.shippingCost === 0 ? 'GRATIS' : formatPrice(selectedDeliveryLocation.shippingCost) }}
+                                        </div>
+                                    </div>
+                                    <div v-else style="padding: 10px 14px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px;">
+                                        <div style="font-size: 13px; color: #dc2626; font-weight: 600;">
+                                            Untuk lokasi Anda saat ini belum bisa dikirim oleh kurir sinar abadi, mohon pilih metode pengiriman yang lain.
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
                             <template v-else>
@@ -800,7 +874,11 @@ const handleCheckout = async () => {
                                 <span>Ongkos Kirim</span>
                                 <span style="color: #0f172a; font-weight: 500;">
                                     <template v-if="checkoutForm.courier === 'Kurir Toko Sinar Abadi'">
-                                        <span style="color: #dc2626; font-style: italic; font-size: 13px;">(akan ditagih setelah sampai)</span>
+                                        <template v-if="selectedDeliveryLocation">
+                                            <span v-if="selectedDeliveryLocation.shippingCost === 0" style="color: #059669; font-weight: 700;">Gratis</span>
+                                            <span v-else>{{ formatPrice(selectedDeliveryLocation.shippingCost) }}</span>
+                                        </template>
+                                        <span v-else style="color: #dc2626; font-style: italic; font-size: 13px;">(tujuan tidak terjangkau)</span>
                                     </template>
                                     <template v-else>
                                         {{ currentShippingCost > 0 ? formatPrice(currentShippingCost) : 'Gratis' }}

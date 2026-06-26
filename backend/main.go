@@ -44,6 +44,8 @@ func main() {
 		&models.InboundOrderItem{},
 		&models.ProductVariant{},
 		&models.StockTransfer{},
+		&models.DeliveryLocation{},
+		&models.FleetVehicle{},
 	); err != nil {
 		log.Fatalf("❌ Auto-migration failed: %v", err)
 	}
@@ -129,6 +131,15 @@ func main() {
 
 	// --- Midtrans Payment Webhook (Public) ---
 	api.POST("/midtrans/webhook", controllers.MidtransWebhook)
+
+	// --- Delivery (Kurir Toko Sinar Abadi) ---
+	api.GET("/delivery/locations", controllers.GetDeliveryLocations) // Public: list served locations
+	deliveryRoutes := api.Group("/delivery")
+	deliveryRoutes.Use(middleware.AuthRequired())
+	{
+		deliveryRoutes.GET("/fleet", middleware.RoleRequired("admin", "owner"), controllers.GetFleetStatus)
+		deliveryRoutes.PUT("/:orderId/status", middleware.RoleRequired("admin", "owner"), controllers.UpdateDeliveryStatus)
+	}
 
 	// --- Users (Admin/Owner) ---
 	userRoutes := api.Group("/users")

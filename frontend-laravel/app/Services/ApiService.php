@@ -482,4 +482,53 @@ class ApiService
             'data'    => $response->json(),
         ];
     }
+
+    // =====================================================================
+    // DELIVERY (Kurir Toko Sinar Abadi)
+    // =====================================================================
+
+    /**
+     * Get delivery locations served by Kurir Toko Sinar Abadi.
+     */
+    public function getDeliveryLocations(): array
+    {
+        $response = Http::timeout(10)
+            ->get("{$this->baseUrl}/delivery/locations");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json() ?? [],
+        ];
+    }
+
+    /**
+     * Get fleet vehicle status (admin/owner).
+     */
+    public function getFleetStatus(string $token): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->get("{$this->baseUrl}/delivery/fleet");
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json() ?? [],
+        ];
+    }
+
+    /**
+     * Update delivery status for a Kurir Toko order (admin/owner).
+     */
+    public function updateDeliveryStatus(string $token, string $orderId, array $data): array
+    {
+        $response = Http::timeout(10)
+            ->withToken($token)
+            ->put("{$this->baseUrl}/delivery/{$orderId}/status", $data);
+
+        return [
+            'success' => $response->successful(),
+            'data'    => $response->json(),
+        ];
+    }
 }
+

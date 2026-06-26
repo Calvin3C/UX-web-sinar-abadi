@@ -42,6 +42,7 @@ type CheckoutInput struct {
 	ShippingCost       int64               `json:"shippingCost"`                     // Provided by frontend from Biteship
 	CourierCode        string              `json:"courierCode"`                      // e.g. "jne", "sicepat" from Biteship
 	CourierServiceCode string              `json:"courierServiceCode"`               // e.g. "reg", "best", "jtr", "gokil" from Biteship
+	DeliveryLocationID *uint               `json:"deliveryLocationId"`               // For Kurir Toko Sinar Abadi
 	Items              []CheckoutItemInput `json:"items" binding:"required,min=1"`
 	Total              int64               `json:"total" binding:"required"` // Total product cost
 }
@@ -298,10 +299,18 @@ func CreateOrder(c *gin.Context) {
 			return
 		}
 	} else if input.ShippingMethod == "Kurir Toko Sinar Abadi" {
-		if !strings.Contains(strings.ToLower(input.Address), "malang") {
-			tx.Rollback()
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Pengiriman Kurir Toko Sinar Abadi hanya berlaku untuk area Malang"})
-			return
+		// Lookup shipping cost from delivery location
+		if input.DeliveryLocationID != nil {
+			cost, err := services.LookupDeliveryLocationCost(*input.DeliveryLocationID)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			shippingCost = cost
+		} else {
+			// Fallback: use the cost provided by frontend
+			shippingCost = input.ShippingCost
 		}
 	}
 
@@ -343,6 +352,8 @@ func CreateOrder(c *gin.Context) {
 		BiteshipAreaID:     input.BiteshipAreaID,
 		CourierCode:        input.CourierCode,
 		CourierServiceCode: input.CourierServiceCode,
+		DeliveryLocationID: input.DeliveryLocationID,
+		DeliveryStatus:     "Menunggu",
 	}
 
 	if result := tx.Create(&shipping); result.Error != nil {

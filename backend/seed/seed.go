@@ -15,6 +15,8 @@ func RunSeeder(db *gorm.DB) {
 	seedProducts(db)
 	seedOrders(db)
 	seedAddresses(db)
+	seedDeliveryLocations(db)
+	seedFleetVehicles(db)
 }
 
 // ---- CUSTOMERS, ADMINS, OWNERS ----
@@ -392,4 +394,64 @@ func seedAddresses(db *gorm.DB) {
 		}
 	}
 	log.Printf("✅ Seeded %d customer addresses\n", len(addresses))
+}
+
+// ---- DELIVERY LOCATIONS (Kurir Toko Sinar Abadi) ----
+func seedDeliveryLocations(db *gorm.DB) {
+	locations := []models.DeliveryLocation{
+		{Name: "Kepatihan", DistanceKm: 18.4, ShippingCost: 150000, IsActive: true},
+		{Name: "Desa Jambangan", DistanceKm: 8.1, ShippingCost: 50000, IsActive: true},
+		{Name: "Desa Ngelak", DistanceKm: 0.8, ShippingCost: 0, IsActive: true},
+		{Name: "Desa Wonokitri", DistanceKm: 6.0, ShippingCost: 25000, IsActive: true},
+		{Name: "Blubuk", DistanceKm: 19.0, ShippingCost: 150000, IsActive: true},
+		{Name: "Karangsono", DistanceKm: 32.4, ShippingCost: 250000, IsActive: true},
+		{Name: "Sumber Gesing", DistanceKm: 21.2, ShippingCost: 250000, IsActive: true},
+		{Name: "Sumber Arum", DistanceKm: 15.3, ShippingCost: 150000, IsActive: true},
+		{Name: "Sono Wangi", DistanceKm: 21.7, ShippingCost: 250000, IsActive: true},
+		{Name: "Sono Sekar", DistanceKm: 18.0, ShippingCost: 150000, IsActive: true},
+		{Name: "Pujiharjo", DistanceKm: 38.1, ShippingCost: 250000, IsActive: true},
+		{Name: "Tambak Asri", DistanceKm: 26.6, ShippingCost: 250000, IsActive: true},
+		{Name: "Sido Asri", DistanceKm: 27.8, ShippingCost: 250000, IsActive: true},
+		{Name: "Lenggoksono", DistanceKm: 32.5, ShippingCost: 250000, IsActive: true},
+		{Name: "Sumber Ayu", DistanceKm: 3.0, ShippingCost: 0, IsActive: true},
+		{Name: "Rembun", DistanceKm: 8.4, ShippingCost: 50000, IsActive: true},
+		{Name: "Lambang Kuning", DistanceKm: 5.4, ShippingCost: 25000, IsActive: true},
+		{Name: "Lambang Sari", DistanceKm: 9.7, ShippingCost: 75000, IsActive: true},
+		{Name: "Sumber Putih", DistanceKm: 9.9, ShippingCost: 75000, IsActive: true},
+		{Name: "Kedok", DistanceKm: 14.3, ShippingCost: 100000, IsActive: true},
+		{Name: "Turen", DistanceKm: 11.4, ShippingCost: 75000, IsActive: true},
+	}
+
+	for _, loc := range locations {
+		if err := db.Where("name = ?", loc.Name).Assign(models.DeliveryLocation{
+			DistanceKm:   loc.DistanceKm,
+			ShippingCost: loc.ShippingCost,
+			IsActive:     loc.IsActive,
+		}).FirstOrCreate(&loc).Error; err != nil {
+			log.Printf("⚠️  Failed to seed delivery location %s: %v", loc.Name, err)
+		}
+	}
+	log.Printf("✅ Seeded/Updated %d delivery locations\n", len(locations))
+}
+
+// ---- FLEET VEHICLES ----
+func seedFleetVehicles(db *gorm.DB) {
+	var count int64
+	db.Model(&models.FleetVehicle{}).Count(&count)
+	if count > 0 {
+		log.Println("⏭️  Fleet vehicles table already seeded, skipping...")
+		return
+	}
+
+	vehicles := []models.FleetVehicle{
+		{Name: "L300", Status: "Tersedia"},
+		{Name: "Mitsubishi Canter", Status: "Tersedia"},
+	}
+
+	for _, v := range vehicles {
+		if err := db.Create(&v).Error; err != nil {
+			log.Printf("⚠️  Failed to seed fleet vehicle %s: %v", v.Name, err)
+		}
+	}
+	log.Printf("✅ Seeded %d fleet vehicles\n", len(vehicles))
 }

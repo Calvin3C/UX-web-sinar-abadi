@@ -254,6 +254,7 @@ class CartController extends Controller
             'shipping_cost' => 'nullable|numeric',
             'courier_code' => 'nullable|string',
             'courier_service_code' => 'nullable|string',
+            'delivery_location_id' => 'nullable|integer',
             'payment_type' => 'required|string',
         ];
 
@@ -310,7 +311,7 @@ class CartController extends Controller
             ? $paymentType
             : 'Transfer Bank ' . $request->input('bank', 'BCA');
 
-        $result = $this->api->createOrder(session('auth_token'), [
+        $orderPayload = [
             'phone'              => $logistic['phone'],
             'address'            => $logistic['address'],
             'shippingMethod'     => $logistic['courier'],
@@ -321,7 +322,14 @@ class CartController extends Controller
             'courierServiceCode' => $request->input('courier_service_code', ''),
             'items'              => $items,
             'total'              => $totalProduct,
-        ]);
+        ];
+
+        // Add delivery location ID for Kurir Toko Sinar Abadi
+        if ($request->input('delivery_location_id')) {
+            $orderPayload['deliveryLocationId'] = (int) $request->input('delivery_location_id');
+        }
+
+        $result = $this->api->createOrder(session('auth_token'), $orderPayload);
 
         if (!$result['success']) {
             $error = $result['data']['error'] ?? 'Gagal membuat pesanan.';
