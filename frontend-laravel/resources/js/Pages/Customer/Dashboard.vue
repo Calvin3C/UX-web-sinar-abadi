@@ -3,6 +3,17 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import { useAddresses } from '@/Composables/useAddresses';
+import { marked } from 'marked';
+
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
+
+const renderMarkdown = (text) => {
+    if (!text) return '';
+    return marked.parse(text);
+};
 
 const props = defineProps({
     orders: {
@@ -27,7 +38,17 @@ const { addresses: mockAddresses, addAddress, updateAddress, setMainAddress } = 
 
 const isModalOpen = ref(false);
 const selectedOrderId = ref('');
-const activeMenu = ref('alamat'); // 'alamat', 'pesanan', 'riwayat', or 'profile'
+const activeMenu = ref('alamat'); // 'alamat', 'pesanan', 'riwayat', 'profile', or 'chatbot'
+
+import { onMounted } from 'vue';
+
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const menuParam = params.get('menu');
+    if (menuParam) {
+        activeMenu.value = menuParam;
+    }
+});
 
 const isAddressFormModalOpen = ref(false);
 const addressFormMode = ref('add'); // 'add' or 'edit'
@@ -811,7 +832,7 @@ const handleUploadProof = () => {
                              <p style="font-size: 14px; max-width: 400px; margin: 0 auto; line-height: 1.5;">Tanyakan kebutuhan material bangunan Anda, dan saya akan merekomendasikan produk serta menghitung kebutuhan Anda.</p>
                          </div>
                          <div v-for="(msg, idx) in chatHistory" :key="idx" :style="{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%', background: msg.role === 'user' ? '#e11d48' : '#f8fafc', color: msg.role === 'user' ? 'white' : '#0f172a', padding: '14px 18px', borderRadius: '16px', borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px', borderBottomLeftRadius: msg.role === 'assistant' ? '4px' : '16px', border: msg.role === 'assistant' ? '1px solid #e2e8f0' : 'none' }">
-                             <div style="white-space: pre-wrap; font-size: 14px; line-height: 1.6;" v-html="msg.text.replace(/\\n/g, '<br>')"></div>
+                             <div :class="{ 'markdown-body': msg.role === 'assistant' }" :style="{ whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal', fontSize: '14px', lineHeight: '1.6' }" v-html="msg.role === 'user' ? msg.text.replace(/\\n/g, '<br>') : renderMarkdown(msg.text)"></div>
                          </div>
                          <div v-if="isChatLoading" style="align-self: flex-start; background: #f8fafc; padding: 14px 18px; border-radius: 16px; border-bottom-left-radius: 4px; border: 1px solid #e2e8f0; color: #64748b; font-size: 14px; font-style: italic;">
                              Sedang mengetik balasan...
@@ -930,3 +951,44 @@ const handleUploadProof = () => {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+:deep(.markdown-body p) {
+    margin-bottom: 0.5em;
+    margin-top: 0;
+}
+:deep(.markdown-body p:last-child) {
+    margin-bottom: 0;
+}
+:deep(.markdown-body ul) {
+    list-style-type: disc;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+}
+:deep(.markdown-body ol) {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+    margin-bottom: 0.5em;
+}
+:deep(.markdown-body li) {
+    margin-bottom: 0.25em;
+}
+:deep(.markdown-body strong) {
+    font-weight: 700;
+}
+:deep(.markdown-body em) {
+    font-style: italic;
+}
+:deep(.markdown-body h1), :deep(.markdown-body h2), :deep(.markdown-body h3) {
+    font-weight: 700;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+:deep(.markdown-body h1:first-child), :deep(.markdown-body h2:first-child), :deep(.markdown-body h3:first-child) {
+    margin-top: 0;
+}
+:deep(.markdown-body a) {
+    color: #2563eb;
+    text-decoration: underline;
+}
+</style>
