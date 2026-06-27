@@ -339,7 +339,6 @@ class OwnerController extends Controller
             'minPurchase' => (int) $request->input('minPurchase', 1),
             'price'       => (int) $request->input('price'),
             'stock'       => (int) $request->input('stock'),
-            'isLarge'     => (bool) $request->input('isLarge', false),
             'img'         => $imgUrl,
         ]);
 
@@ -396,7 +395,6 @@ class OwnerController extends Controller
             'unit'        => $request->input('unit', ''),
             'minPurchase' => (int) $request->input('minPurchase', 1),
             'price'       => (int) $request->input('price'),
-            'isLarge'     => (bool) $request->input('isLarge', false),
             'img'         => $imgUrl,
         ]);
 

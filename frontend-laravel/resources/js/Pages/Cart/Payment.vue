@@ -180,7 +180,7 @@ const fetchRates = async (addr) => {
                 name: item.name,
                 value: item.price,
                 quantity: item.qty,
-                weight: item.weight && item.weight > 0 ? item.weight : (item.isLarge ? 15000 : 2000),
+                weight: item.weight && item.weight > 0 ? item.weight : 2000,
                 length: item.length && item.length > 0 ? item.length : 1,
                 width: item.width && item.width > 0 ? item.width : 1,
                 height: item.height && item.height > 0 ? item.height : 1

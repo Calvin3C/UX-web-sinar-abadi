@@ -24,7 +24,6 @@ type CreateProductInput struct {
 	MinPurchase int    `json:"minPurchase"`
 	Price       int64  `json:"price" binding:"required"`
 	Stock       int    `json:"stock"` // initial stock, recorded in stock_logs
-	IsLarge     bool   `json:"isLarge"`
 	ImageURL    string `json:"img"`
 }
 
@@ -47,7 +46,6 @@ type UpdateProductInput struct {
 	Unit        string `json:"unit"`
 	MinPurchase int    `json:"minPurchase"`
 	Price       int64  `json:"price"`
-	IsLarge     bool   `json:"isLarge"`
 	ImageURL    string `json:"img"`
 }
 
@@ -78,7 +76,6 @@ func toProductResponse(product models.Product) models.ProductResponse {
 		Price:       product.Price,
 		Stock:       getStockByProductID(product.ID),
 		Sold:        product.Sold,
-		IsLarge:     product.IsLarge,
 		ImageURL:    product.ImageURL,
 		Variants:    product.Variants,
 		WarehouseStocks: product.WarehouseStocks,
@@ -167,7 +164,6 @@ func CreateProduct(c *gin.Context) {
 		MinPurchase: input.MinPurchase,
 		Price:       input.Price,
 		Sold:        0,
-		IsLarge:     input.IsLarge,
 		ImageURL:    input.ImageURL,
 	}
 
@@ -333,7 +329,6 @@ func UpdateProduct(c *gin.Context) {
 	if input.MinPurchase > 0 {
 		updates["min_purchase"] = input.MinPurchase
 	}
-	updates["is_large"] = input.IsLarge
 	if input.ImageURL != "" {
 		updates["image_url"] = input.ImageURL
 	}
