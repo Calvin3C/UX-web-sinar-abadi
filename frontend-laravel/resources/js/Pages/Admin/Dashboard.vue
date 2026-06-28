@@ -423,19 +423,57 @@ const getStatusLabel = (status) => {
                         </div>
                         
                         <template v-else>
-                        <!-- Tab 0: Dashboard (Stats Only) -->
-                        <div v-if="activeTab === 'dashboard'" class="stats-grid mb-6">
-                            <div class="stat-card">
-                                <span class="stat-title">Total Pesanan</span>
-                                <span class="stat-value">{{ stats.totalOrders }}</span>
+                        <!-- Tab 0: Dashboard -->
+                        <div v-if="activeTab === 'dashboard'">
+                            <div class="stats-grid mb-6">
+                                <div class="stat-card">
+                                    <span class="stat-title">Total Pesanan</span>
+                                    <span class="stat-value">{{ stats.totalOrders }}</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-title" style="color: var(--color-warning);">Menunggu Status Order</span>
+                                    <span class="stat-value" style="color: var(--color-warning);">{{ stats.pendingOrders }}</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-title">Total Pelanggan</span>
+                                    <span class="stat-value">{{ stats.totalCustomers }}</span>
+                                </div>
                             </div>
-                            <div class="stat-card">
-                                <span class="stat-title" style="color: var(--color-warning);">Menunggu Status Order</span>
-                                <span class="stat-value" style="color: var(--color-warning);">{{ stats.pendingOrders }}</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-title">Total Pelanggan</span>
-                                <span class="stat-value">{{ stats.totalCustomers }}</span>
+
+                            <div class="table-card">
+                                <div class="table-header">
+                                    <h3 style="font-size:18px;">Daftar Pelanggan Terbaru</h3>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nama Lengkap</th>
+                                                <th>Username</th>
+                                                <th>Email</th>
+                                                <th>No Telepon</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="cust in customers.slice(0, 10)" :key="cust.username">
+                                                <td style="font-weight: 700;">{{ cust.name }}</td>
+                                                <td>{{ cust.username }}</td>
+                                                <td>{{ cust.email || '-' }}</td>
+                                                <td>{{ cust.phone || '-' }}</td>
+                                            </tr>
+                                            <tr v-if="customers.length === 0">
+                                                <td colspan="4" class="text-center text-muted" style="padding: 40px 0;">
+                                                    Belum ada data customer terdaftar.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div v-if="customers.length > 10" style="padding: 16px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                    <button @click="activeTab = 'customers'" style="color: #e11d48; font-weight: 600; font-size: 14px; background: none; border: none; cursor: pointer;">
+                                        Lihat Semua Pelanggan →
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
