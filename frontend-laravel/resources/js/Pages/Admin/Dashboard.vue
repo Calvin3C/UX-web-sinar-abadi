@@ -852,8 +852,31 @@ const getStatusLabel = (status) => {
                     </div>
                 </div>
                 
-                <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: right; background: #f8fafc;">
-                    <button type="button" @click="isOrderDetailModalOpen = false" class="btn" style="background: #0f172a; color: white; padding: 8px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">Tutup</button>
+                <div v-if="selectedOrderDetail?.status?.toUpperCase() === 'SUCCESS' || selectedOrderDetail?.status?.toUpperCase() === 'VERIFIED'" style="padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: right; background: #f8fafc;">
+                    <template v-if="getShippingType(selectedOrderDetail?.shippingMethod) === 'kurir'">
+                        <button 
+                            @click="handleMarkShipping(selectedOrderDetail.id); isOrderDetailModalOpen = false"
+                            style="background: #e11d48; color: white; padding: 8px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;"
+                        >
+                            Proses Pesanan & Kirim
+                        </button>
+                    </template>
+                    <template v-else-if="getShippingType(selectedOrderDetail?.shippingMethod) === 'ambil'">
+                        <button 
+                            @click="handleMarkCompleted(selectedOrderDetail.id); isOrderDetailModalOpen = false"
+                            style="background: #2563eb; color: white; padding: 8px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;"
+                        >
+                            Selesai
+                        </button>
+                    </template>
+                    <template v-else-if="getShippingType(selectedOrderDetail?.shippingMethod) === 'toko'">
+                        <button 
+                            @click="activeTab = 'delivery'; isOrderDetailModalOpen = false"
+                            style="background: #ea580c; color: white; padding: 8px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;"
+                        >
+                            Atur Pengiriman
+                        </button>
+                    </template>
                 </div>
             </div>
         </div>
