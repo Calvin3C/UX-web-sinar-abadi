@@ -45,6 +45,15 @@ const isVehicleModalOpen = ref(false);
 const vehicleOrderId = ref('');
 const selectedVehicleId = ref(null);
 
+// Order detail modal
+const isOrderDetailModalOpen = ref(false);
+const selectedOrderDetail = ref(null);
+
+const openOrderDetail = (order) => {
+    selectedOrderDetail.value = order;
+    isOrderDetailModalOpen.value = true;
+};
+
 const profileForm = useForm({
     name: props.profile?.name || '',
     username: props.profile?.username || '',
@@ -526,7 +535,13 @@ const getStatusLabel = (status) => {
                             </thead>
                             <tbody>
                                 <tr v-for="order in filteredOrders" :key="order.id">
-                                    <td style="font-weight: 800; font-family: monospace;">{{ order.id }}</td>
+                                    <td 
+                                        @click="openOrderDetail(order)"
+                                        style="font-weight: 800; font-family: monospace; color: #3b82f6; cursor: pointer; text-decoration: underline;"
+                                        title="Klik untuk melihat detail pesanan"
+                                    >
+                                        {{ order.id }}
+                                    </td>
                                     <td>{{ formatDate(order.createdAt) }}</td>
                                     <td style="font-weight: 600; color: #0f172a;">
                                         {{ order.shippingMethod || 'JNE' }}
@@ -560,7 +575,7 @@ const getStatusLabel = (status) => {
                                                     @click="handleMarkShipping(order.id)"
                                                     style="padding: 6px 18px; font-size: 12px; font-weight: 700; color: white; background: #e11d48; border: none; border-radius: 6px; cursor: pointer;"
                                                 >
-                                                    Cetak Resi
+                                                    Proses Pesanan & Kirim
                                                 </button>
                                                 <span v-else style="color: #94a3b8; font-size: 12px;">-</span>
                                             </template>
@@ -686,7 +701,13 @@ const getStatusLabel = (status) => {
                                 </thead>
                                 <tbody>
                                     <tr v-for="order in filteredDeliveryOrders" :key="order.id">
-                                        <td style="font-weight: 800; font-family: monospace;">{{ order.id }}</td>
+                                        <td 
+                                            @click="openOrderDetail(order)"
+                                            style="font-weight: 800; font-family: monospace; color: #3b82f6; cursor: pointer; text-decoration: underline;"
+                                            title="Klik untuk melihat detail pesanan"
+                                        >
+                                            {{ order.id }}
+                                        </td>
                                         <td>{{ formatDate(order.createdAt) }}</td>
                                         <td style="font-weight: 600;">{{ order.customer || '-' }}</td>
                                         <td style="max-width: 200px; white-space: normal; font-size: 13px;">
@@ -792,6 +813,48 @@ const getStatusLabel = (status) => {
                         <button type="submit" class="btn btn-primary w-100">Kirim Barang</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Order Detail Modal -->
+        <div v-if="isOrderDetailModalOpen" class="d-flex" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+            <div style="width:100%; max-width:600px; background: white; border-radius: 12px; overflow: hidden; animation: slideUp 0.3s forwards; display: flex; flex-direction: column; max-height: 90vh;">
+                <!-- Header -->
+                <div class="d-flex justify-between align-center" style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0;">
+                    <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0;">Detail Pesanan {{ selectedOrderDetail?.id }}</h3>
+                    <button @click="isOrderDetailModalOpen = false" style="background: none; border: none; cursor: pointer;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                
+                <div style="padding: 24px; overflow-y: auto;">
+                    <div style="margin-bottom: 16px; font-size: 14px; color: #64748b;">
+                        <strong>Status:</strong> {{ getStatusLabel(selectedOrderDetail?.status) }}<br/>
+                        <strong>Metode Pengiriman:</strong> {{ selectedOrderDetail?.shippingMethod }}
+                    </div>
+                    
+                    <h4 style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">Daftar Produk</h4>
+                    
+                    <div v-if="selectedOrderDetail?.items && selectedOrderDetail.items.length > 0">
+                        <div v-for="item in selectedOrderDetail.items" :key="item.id" style="display: flex; gap: 16px; margin-bottom: 16px; align-items: center; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 700; color: #0f172a;">{{ item.name }}</div>
+                                <div v-if="item.color" style="font-size: 13px; color: #64748b; margin-top: 4px;">Warna: {{ item.color }}</div>
+                                <div style="font-size: 13px; color: #0f172a; font-weight: 600; margin-top: 6px;">{{ item.qty }} x {{ formatPrice(item.price) }}</div>
+                            </div>
+                            <div style="font-size: 15px; font-weight: 800; color: #dc2626;">
+                                {{ formatPrice(item.price * item.qty) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else style="font-size: 14px; color: #94a3b8; text-align: center; padding: 20px;">
+                        Data produk tidak tersedia
+                    </div>
+                </div>
+                
+                <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: right; background: #f8fafc;">
+                    <button type="button" @click="isOrderDetailModalOpen = false" class="btn" style="background: #0f172a; color: white; padding: 8px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">Tutup</button>
+                </div>
             </div>
         </div>
 

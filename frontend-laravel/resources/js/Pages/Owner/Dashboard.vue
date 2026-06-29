@@ -512,7 +512,7 @@ const filteredInbounds = computed(() => {
 });
 
 const printLabel = (orderId) => {
-    alert("Fitur Cetak Resi akan segera hadir!"); // Placeholder for actual printing
+    alert("Fitur Proses Pesanan & Kirim akan segera hadir!"); // Placeholder for actual printing
 };
 
 // Filtered products based on search and stock filter
