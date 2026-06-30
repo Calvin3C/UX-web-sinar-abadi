@@ -100,6 +100,7 @@ func main() {
 	productAuth := api.Group("/products")
 	productAuth.Use(middleware.AuthRequired())
 	{
+		productAuth.POST("/upload", middleware.RoleRequired("admin", "owner"), controllers.UploadProductImage)
 		productAuth.POST("", middleware.RoleRequired("admin", "owner"), controllers.CreateProduct)
 		productAuth.PUT("/:id/stock", middleware.RoleRequired("owner"), controllers.UpdateStock)
 		productAuth.PUT("/:id", middleware.RoleRequired("admin", "owner"), controllers.UpdateProduct)

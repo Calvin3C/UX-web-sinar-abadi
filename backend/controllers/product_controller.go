@@ -1,8 +1,12 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"sinar-abadi-backend/config"
 	"sinar-abadi-backend/models"
@@ -356,4 +360,43 @@ func GetProductByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, toProductResponse(product))
+}
+
+// UploadProductImage handles image uploads from mobile app. Owner/Admin only.
+// POST /api/products/upload
+func UploadProductImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal membaca file gambar"})
+		return
+	}
+
+	if err := os.MkdirAll("uploads/products", 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat direktori upload"})
+		return
+	}
+
+	// Generate unique filename
+	ext := filepath.Ext(file.Filename)
+	filename := fmt.Sprintf("mobile_product_%d%s", time.Now().UnixNano(), ext)
+	filepathStr := fmt.Sprintf("uploads/products/%s", filename)
+
+	if err := c.SaveUploadedFile(file, filepathStr); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan gambar"})
+		return
+	}
+
+	// Host URL is needed to form the full URL, or just return relative URL
+	// Depending on frontend, relative might be better, or absolute based on request host
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+	host := c.Request.Host
+	imgURL := fmt.Sprintf("%s://%s/storage/products/%s", scheme, host, filename)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Gambar berhasil diunggah",
+		"image_url": imgURL,
+	})
 }

@@ -189,6 +189,7 @@ const kurirTokoOrders = computed(() => {
 
 const deliverySearchQuery = ref('');
 const deliveryStatusFilter = ref('Semua');
+const deliveryDateFilter = ref('');
 
 const filteredDeliveryOrders = computed(() => {
     let orders = kurirTokoOrders.value;
@@ -206,6 +207,10 @@ const filteredDeliveryOrders = computed(() => {
         orders = orders.filter(o => {
             return (o.shipping?.deliveryStatus || 'Menunggu') === deliveryStatusFilter.value;
         });
+    }
+
+    if (deliveryDateFilter.value) {
+        orders = orders.filter(o => o.createdAt && o.createdAt.startsWith(deliveryDateFilter.value));
     }
 
     return orders;
@@ -667,6 +672,10 @@ const getStatusLabel = (status) => {
                                 <div style="position: relative; flex: 1; min-width: 250px;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 11px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                                     <input v-model="deliverySearchQuery" type="text" placeholder="Cari ID / Pelanggan / Alamat" style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input v-model="deliveryDateFilter" type="date" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569;">
+                                    <button v-if="deliveryDateFilter" @click="deliveryDateFilter = ''" style="background: none; border: none; color: #e11d48; cursor: pointer; font-size: 12px; font-weight: 700;">Reset</button>
                                 </div>
                             </div>
 
