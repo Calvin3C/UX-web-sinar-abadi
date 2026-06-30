@@ -1269,7 +1269,7 @@ const handleDeleteAdmin = (adminUsername) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="order in filteredOrders" :key="order.id">
+                                <tr v-for="order in filteredOrders" :key="order.id" @click="openOrderDetailModal(order)" style="cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                                     <!-- ID Order -->
                                     <td style="font-weight: 800; font-family: monospace; color: #0f172a;">
                                         {{ order.id }}
@@ -1869,7 +1869,9 @@ const handleDeleteAdmin = (adminUsername) => {
                     </div>
                     <div style="flex: 1; min-width: 150px;">
                         <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Status</div>
-                        <span class="status-pill success" style="display: inline-block;">Selesai</span>
+                        <span class="status-pill" :class="getStatusClass(selectedOrder.status)" style="display: inline-block;">
+                            {{ getStatusLabel(selectedOrder.status) }}
+                        </span>
                     </div>
                 </div>
 
